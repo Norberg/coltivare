@@ -58,6 +58,55 @@ async function fixture() {
   );
   return { w, g, o, plant, p, placement };
 }
+test("mixed planting snapshots survive edits, undo/redo, garden copy and workspace restore", async () => {
+  const { w, g, p } = await fixture();
+  const flower = makeRecord("plant", w.id, {
+    name: "Blåklint",
+    icon: "cornflower",
+  });
+  const saved = (await repo.list()).find((r) => r.id === p.id)!;
+  await repo.commit(
+    [
+      { after: flower },
+      {
+        before: saved,
+        after: { ...saved, name: "Blomsteräng", additionalPlants: [flower] },
+      },
+    ],
+    g.id,
+  );
+  await repo.travel(g.id, "undo");
+  expect(
+    (await repo.list()).find((r) => r.id === p.id)!.additionalPlants,
+  ).toBeUndefined();
+  await repo.travel(g.id, "redo");
+  const liveFlower = (await repo.list()).find((r) => r.id === flower.id)!;
+  await repo.commit([
+    { before: liveFlower, after: { ...liveFlower, name: "Nytt katalognamn" } },
+  ]);
+  expect(
+    (await repo.list()).find((r) => r.id === p.id)!.additionalPlants![0].name,
+  ).toBe("Blåklint");
+  const other = new IndexedRepository(crypto.randomUUID());
+  try {
+    await other.import(await repo.export());
+    expect(
+      (await other.list()).find((r) => r.id === p.id)!.additionalPlants,
+    ).toEqual([flower]);
+  } finally {
+    await other.close();
+  }
+  await repo.import(await repo.export(g.id));
+  const all = await repo.list();
+  const copy = all.find((r) => r.kind === "planting" && r.id !== p.id)!;
+  expect(copy.additionalPlants![0].id).not.toBe(flower.id);
+  expect(copy.additionalPlants![0].workspaceId).toBe(w.id);
+  expect(all.find((r) => r.id === copy.additionalPlants![0].id)!.name).toBe(
+    "Nytt katalognamn",
+  );
+  expect(copy.additionalPlants![0].name).toBe("Blåklint");
+});
+
 test("separate records persist and revision conflicts roll back entire commands", async () => {
   const { g, o } = await fixture();
   const saved = (await repo.list()).find((r) => r.id === o.id)!;

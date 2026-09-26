@@ -326,6 +326,14 @@ export class IndexedRepository implements Repository {
                 id: ids.get(result.snapshot.id) || result.snapshot.id,
                 workspaceId: workspace.id,
               };
+            if (result.additionalPlants)
+              result.additionalPlants = result.additionalPlants.map(
+                (plant) => ({
+                  ...plant,
+                  id: ids.get(plant.id)!,
+                  workspaceId: workspace.id,
+                }),
+              );
             return result;
           });
       }

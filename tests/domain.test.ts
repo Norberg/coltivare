@@ -20,6 +20,45 @@ const rect: Geometry = {
   rotation: 0,
   shape: "rectangle",
 };
+test("mixed planting validates independent species snapshots and rejects malformed mixtures", () => {
+  const id = crypto.randomUUID();
+  const w = makeRecord("workspace", id, { id });
+  const g = makeRecord("garden", id, {
+    name: "Trädgård",
+    width: 20,
+    height: 15,
+  });
+  const a = makeRecord("plant", id, { name: "Lavendel" });
+  const b = makeRecord("plant", id, { name: "Blåklint" });
+  const p = makeRecord("planting", id, {
+    name: "Blomsteräng",
+    gardenId: g.id,
+    count: 100,
+    plantId: a.id,
+    snapshot: a,
+    additionalPlants: [b],
+  });
+  expect(() => validateRecords([w, g, a, b, p])).not.toThrow();
+  for (const invalid of [
+    [a],
+    [b, b],
+    [null],
+    "bad",
+    [{ ...b, id: crypto.randomUUID() }],
+    [{ ...b, workspaceId: crypto.randomUUID() }],
+  ]) {
+    expect(() =>
+      validateRecords([
+        w,
+        g,
+        a,
+        b,
+        { ...p, additionalPlants: invalid as never },
+      ]),
+    ).toThrow();
+  }
+  expect(() => validateRecords([w, { ...a, additionalPlants: [b] }])).toThrow();
+});
 test("optional appearance metadata validates colors and known icons, preserving old records", () => {
   const w = makeRecord("workspace", crypto.randomUUID());
   w.workspaceId = w.id;

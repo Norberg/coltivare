@@ -36,8 +36,8 @@ publicering har utförts.
 ## Använda appen
 
 1. Skapa en trädgård, exempelvis 20 × 15 meter.
-2. Välj Rektangel, Ellips eller Polygon och klicka/dra på kartan. Polygoner
-   sluts med dubbelklick. Välj objektet för namn, kategori, mått och hörn.
+2. Välj Rektangel eller Ellips och klicka/dra på kartan.
+   Välj objektet för namn, kategori och mått.
 3. Skapa en egen växt. Bara namnet är obligatoriskt; okända odlingsvärden är
    tomma. Alla angivna intervall behöver en utgångspunkt, till exempel sådd.
 4. Välj Plantera, växt och antal. Klicka/dra i kartan och bekräfta startdatum
@@ -45,6 +45,19 @@ publicering har utförts.
    visar en tidigare etablerad växt utan påhittat etableringsdatum.
 5. Byt datum i kartan för att se faktiska placeringar. Använd Journal för
    händelser, månadskalender och filtrerad lista.
+
+För en blomsteräng eller annan samodling, välj **Plantera → Blandad plantering**.
+Kryssa i minst två växter som ska växa i samma yta. Rullistan för en första
+växt är valfri; om den används räknas den växten också in i blandningen.
+Ge gärna blandningen ett namn, exempelvis ”Blomsteräng”, och rita ytan.
+Antalet gäller totalt för blandningen; växterna delar placering och datum.
+Kartan visar namnet och alla ingående växter. Via **Redigera plantering och antal**
+kan du lägga till eller ta bort de extra växterna. Växtuppgifterna sparas som
+ögonblicksbilder och följer med vid export/import. Journalens växtfilter hittar
+blandningen via alla ingående växter.
+Arternas valda ikoner blandas över hela ytan med mellanrum, även i ellipser.
+Mönstret är illustrativt och visar inte exakt antal plantor. Arter utan vald
+ikon visas fortfarande i växtlistan. Namn och artlista ligger kvar som etikett.
 
 En **växtpost** är en återanvändbar art/sort. En **plantering** är ett bestämt
 exemplar eller en odlingsomgång, med antal och en fryst kopia av växtuppgifterna.
@@ -72,11 +85,11 @@ objektets egenskaper. Inga domänposter permanentraderas av användargränssnitt
 Ångra/Gör om bevarar upp till 50 kartkommandon per trädgård i IndexedDB.
 Ctrl/Cmd+Z respektive Ctrl/Cmd+Shift+Z fungerar när du inte skriver i ett fält.
 Escape avbryter ritning/dragning. Objekt kan även väljas i den sökbara listan;
-mått, rotation och polygonhörn kan anges i formulär. Decimaler med komma stöds.
+mått och rotation kan anges i formulär. Decimaler med komma stöds.
 
 Markera en yta eller placering och välj **Ändra storlek**. Dra något av de fyra
 hörnhandtagen och släpp för att spara; det motsatta hörnet ligger kvar.
-Rektanglar, ellipser och polygoner kan skalas även när de är roterade.
+Rektanglar och ellipser kan skalas även när de är roterade.
 Escape avbryter pågående dragning. Låsta objekt måste låsas upp först.
 Ångra/Gör om fungerar även för storleksändringar. Bundna plantors egna mått
 och lokala avstånd skalas inte när deras yta ändrar storlek.
@@ -84,7 +97,9 @@ och lokala avstånd skalas inte när deras yta ändrar storlek.
 **Välj** markerar objekt utan att flytta eller ändra dem. **Flytta** är ett
 separat verktyg där du drar ett objekt till en ny position; detta är en
 ritkorrigering, inte en daterad fysisk flytt. **Panorera** flyttar kartvyn.
-För polygoners enskilda hörn använder du **Redigera hörn** i egenskapspanelen.
+Nya polygoner och redigering av polygonhörn stöds inte längre. Befintliga
+polygoner bevaras, visas och följer med vid export/import. De kan fortfarande
+flyttas och skalas, eller uttryckligen bytas till rektangel/ellips i formuläret.
 
 I **Flytta → Markera många** väljer du flera objekt genom att klicka på dem,
 eller genom att dra en markeringsruta runt dem på tom kartmark. Klicka igen

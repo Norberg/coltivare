@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatMeters } from "./format";
 import { PlantIcon } from "./PlantIcon";
+import { MixturePicker } from "./MixturePicker";
 import { plantIcons, type PlantIconId } from "./plantAppearance";
 import {
   addDays,
@@ -8,8 +9,8 @@ import {
   eventTypes,
   makeRecord,
   numberValue,
+  plantingPlants,
   today,
-  vertices,
   type RecordData,
   type Change,
   type Geometry,
@@ -90,6 +91,7 @@ export function RecordForm({
     shape: "rectangle",
   });
   const edit = (values: Partial<RecordData>) => {
+    // Preserve older saved polygons when changing dimensions; new shapes are rectangles/ellipses.
     if (
       values.geometry &&
       draft.geometry?.shape === "polygon" &&
@@ -104,16 +106,6 @@ export function RecordForm({
           x: (p.x * values.geometry!.width) / previous.width,
           y: (p.y * values.geometry!.height) / previous.height,
         }));
-      } else if (
-        values.geometry.points !== previous.points &&
-        values.geometry.points?.length
-      ) {
-        values.geometry.width =
-          Math.max(...values.geometry.points.map((p) => p.x)) -
-          Math.min(...values.geometry.points.map((p) => p.x));
-        values.geometry.height =
-          Math.max(...values.geometry.points.map((p) => p.y)) -
-          Math.min(...values.geometry.points.map((p) => p.y));
       }
     }
     setDraft({ ...draft, ...values });
@@ -183,7 +175,7 @@ export function RecordForm({
       }
       await save(
         changes,
-        alsoPlace || ["object", "placement"].includes(record.kind),
+        alsoPlace || ["object", "placement", "planting"].includes(record.kind),
       );
       onDirty(false);
       cancel();
@@ -333,17 +325,18 @@ export function RecordForm({
                   geometry: {
                     ...geometry,
                     shape: e.target.value as typeof geometry.shape,
-                    points:
-                      e.target.value === "polygon"
-                        ? vertices({ ...geometry, x: 0, y: 0, rotation: 0 })
-                        : undefined,
+                    points: undefined,
                   },
                 })
               }
             >
               <option value="rectangle">Rektangel</option>
               <option value="ellipse">Ellips / individ</option>
-              <option value="polygon">Polygon / grupp</option>
+              {geometry.shape === "polygon" && (
+                <option value="polygon" disabled>
+                  Äldre polygon
+                </option>
+              )}
             </select>
           </label>
           <p className="hint">
@@ -370,84 +363,6 @@ export function RecordForm({
               ),
             )}
           </div>
-          {geometry.shape === "polygon" && (
-            <fieldset>
-              <legend>Polygonens hörn (lokala meter)</legend>
-              {geometry.points?.map((pt, i) => (
-                <div className="vertex" key={i}>
-                  <Field
-                    label={`Hörn ${i + 1} X`}
-                    meters
-                    value={pt.x}
-                    onChange={(v) =>
-                      edit({
-                        geometry: {
-                          ...geometry,
-                          points: geometry.points!.map((p, j) =>
-                            j === i ? { ...p, x: numberValue(v) } : p,
-                          ),
-                        },
-                      })
-                    }
-                  />
-                  <Field
-                    label={`Hörn ${i + 1} Y`}
-                    meters
-                    value={pt.y}
-                    onChange={(v) =>
-                      edit({
-                        geometry: {
-                          ...geometry,
-                          points: geometry.points!.map((p, j) =>
-                            j === i ? { ...p, y: numberValue(v) } : p,
-                          ),
-                        },
-                      })
-                    }
-                  />
-                  <button
-                    type="button"
-                    aria-label={`Ta bort hörn ${i + 1}`}
-                    onClick={() =>
-                      edit({
-                        geometry: {
-                          ...geometry,
-                          points: geometry.points!.filter((_, j) => j !== i),
-                        },
-                      })
-                    }
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() =>
-                  edit({
-                    geometry: {
-                      ...geometry,
-                      points: [
-                        ...geometry.points!,
-                        {
-                          x:
-                            (geometry.points![geometry.points!.length - 1].x +
-                              geometry.points![0].x) /
-                            2,
-                          y:
-                            (geometry.points![geometry.points!.length - 1].y +
-                              geometry.points![0].y) /
-                            2,
-                        },
-                      ],
-                    },
-                  })
-                }
-              >
-                Lägg till hörn
-              </button>
-            </fieldset>
-          )}
         </>
       )}
       {draft.kind === "placement" && (
@@ -518,13 +433,41 @@ export function RecordForm({
             value={draft.count}
             onChange={(v) => edit({ count: numberValue(v) })}
           />
-          <p>Registrerad växt: {draft.snapshot?.name}</p>
+          <p>
+            Registrerade växter:{" "}
+            {plantingPlants(draft)
+              .map((plant) => plant.name)
+              .join(", ")}
+          </p>
+          <MixturePicker
+            records={records}
+            primaryId={draft.plantId!}
+            selected={(draft.additionalPlants || []).map((plant) => plant.id)}
+            onChange={(ids) =>
+              edit({
+                additionalPlants: ids.map((id) =>
+                  structuredClone(
+                    draft.additionalPlants?.find((plant) => plant.id === id) ||
+                      records.find((plant) => plant.id === id)!,
+                  ),
+                ),
+              })
+            }
+          />
+          <p className="hint">
+            Antalet gäller hela planteringen. Växterna delar yta och datum.
+          </p>
           <details>
             <summary>Sparad katalogögonblicksbild</summary>
-            {Object.entries(draft.snapshot?.fields || {}).map(([k, v]) => (
-              <p key={k}>
-                {k}: {v || "Okänt"}
-              </p>
+            {plantingPlants(draft).map((plant) => (
+              <section key={plant.id}>
+                <h4>{plant.name}</h4>
+                {Object.entries(plant.fields || {}).map(([k, v]) => (
+                  <p key={k}>
+                    {k}: {v || "Okänt"}
+                  </p>
+                ))}
+              </section>
             ))}
           </details>
         </>

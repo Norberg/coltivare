@@ -23,6 +23,7 @@ import {
   type Geometry,
   type RecordData,
   numberValue,
+  plantingPlants,
 } from "./domain";
 import { gardenWarnings } from "./warnings";
 import type { Repository } from "./repository";
@@ -30,6 +31,7 @@ import { GardenMap, type Tool } from "./Map";
 import { Field, RecordForm } from "./Forms";
 import { formatMeters } from "./format";
 import { PlantIcon } from "./PlantIcon";
+import { MixturePicker } from "./MixturePicker";
 
 export function App({ repository }: { repository: Repository }) {
   const cache = useQueryClient();
@@ -67,7 +69,16 @@ export function App({ repository }: { repository: Repository }) {
     [structure, setStructure] = useState(true),
     [plants, setPlants] = useState(true);
   const [plantId, setPlantId] = useState("");
+  const [mixed, setMixed] = useState(false);
+  const [mixtureIds, setMixtureIds] = useState<string[]>([]);
+  const [mixtureName, setMixtureName] = useState("");
   const [count, setCount] = useState("1");
+  const selectedPlants = [...new Set([plantId, ...(mixed ? mixtureIds : [])])]
+    .map((id) => records.find((record) => record.id === id))
+    .filter(
+      (record): record is RecordData =>
+        !!record && record.kind === "plant" && !record.archived,
+    );
   const [edgeSnap, setEdgeSnap] = useState(true);
   const [pathWidth, setPathWidth] = useState(0.8);
   const [placementDraft, setPlacementDraft] = useState<Geometry>();
@@ -268,8 +279,12 @@ export function App({ repository }: { repository: Repository }) {
   }
   async function addPlanting() {
     if (!garden || !workspace || !placementDraft) return;
-    const plant = records.find((r) => r.id === plantId);
+    const [plant, ...companions] = selectedPlants;
     const existing = records.find((r) => r.id === plantingToPlace);
+    if (!existing && mixed && selectedPlants.length < 2) {
+      setError("Välj minst två olika växter för en blandad plantering.");
+      return;
+    }
     if (!plant && !existing) {
       setError("Välj eller skapa en växt först.");
       return;
@@ -279,9 +294,13 @@ export function App({ repository }: { repository: Repository }) {
       makeRecord("planting", workspace.id, {
         gardenId: garden.id,
         plantId: plant!.id,
-        name: plant!.name,
+        name: mixed
+          ? mixtureName.trim() ||
+            [plant!, ...companions].map((r) => r.name).join(" + ")
+          : plant!.name,
         count: Number(count.replace(",", ".")),
         snapshot: structuredClone(plant!),
+        ...(mixed ? { additionalPlants: structuredClone(companions) } : {}),
       });
     const parent = records.find((r) => r.id === bound)?.geometry;
     const localGeometry = parent
@@ -461,7 +480,6 @@ export function App({ repository }: { repository: Repository }) {
                       ["pan", "Panorera"],
                       ["rectangle", "Rektangel"],
                       ["ellipse", "Ellips"],
-                      ["polygon", "Polygon"],
                       ["path", "Gång"],
                       ["planting", "Plantera"],
                     ] as [Tool, string][]
@@ -518,11 +536,16 @@ export function App({ repository }: { repository: Repository }) {
                 {tool === "planting" && (
                   <div className="plant-picker">
                     <label className="field">
-                      Växt
+                      {mixed ? "Första växt (valfritt)" : "Växt"}
                       <select
                         aria-label="Växt att plantera"
                         value={plantId}
-                        onChange={(e) => setPlantId(e.target.value)}
+                        onChange={(e) => {
+                          setPlantId(e.target.value);
+                          setMixtureIds((ids) =>
+                            ids.filter((id) => id !== e.target.value),
+                          );
+                        }}
                       >
                         <option value="">Välj en växt</option>
                         {records
@@ -534,6 +557,39 @@ export function App({ repository }: { repository: Repository }) {
                           ))}
                       </select>
                     </label>
+                    {!plantingToPlace && (
+                      <>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={mixed}
+                            onChange={(e) => setMixed(e.target.checked)}
+                          />{" "}
+                          Blandad plantering
+                        </label>
+                        {mixed && (
+                          <>
+                            <Field
+                              label="Blandningens namn"
+                              value={mixtureName}
+                              onChange={setMixtureName}
+                            />
+                            <MixturePicker
+                              records={records}
+                              primaryId={plantId}
+                              selected={mixtureIds}
+                              onChange={setMixtureIds}
+                            />
+                            <p className="hint">
+                              Kryssa i minst två växter. Du kan också välja en
+                              första växt i rullistan, men det är valfritt.
+                              Antalet gäller hela blandningen; alla växter delar
+                              yta och datum.
+                            </p>
+                          </>
+                        )}
+                      </>
+                    )}
                     <Field
                       label="Antal plantor"
                       value={count}
@@ -603,7 +659,11 @@ export function App({ repository }: { repository: Repository }) {
                         (r.gardenId === garden?.id || r.kind === "plant") &&
                         ["object", "planting", "plant"].includes(r.kind) &&
                         (archived || !r.archived) &&
-                        r.name
+                        [
+                          r.name,
+                          ...plantingPlants(r).map((plant) => plant.name),
+                        ]
+                          .join(" ")
                           .toLocaleLowerCase()
                           .includes(search.toLocaleLowerCase()),
                     )
@@ -834,12 +894,14 @@ export function App({ repository }: { repository: Repository }) {
                       Den streckade ytan är inte sparad ännu. Kontrollera
                       datumen och välj Spara plantering.
                     </p>
-                    {!plantId && !plantingToPlace && (
-                      <p role="alert">
-                        Välj en växt under Plantera. Om växtregistret är tomt,
-                        avbryt och välj Skapa egen växt först.
-                      </p>
-                    )}
+                    {!mixed &&
+                      selectedPlants.length === 0 &&
+                      !plantingToPlace && (
+                        <p role="alert">
+                          Välj en växt under Plantera. Om växtregistret är tomt,
+                          avbryt och välj Skapa egen växt först.
+                        </p>
+                      )}
                     <Field
                       label="Visas från"
                       value={from}
@@ -915,26 +977,15 @@ export function App({ repository }: { repository: Repository }) {
                     {planting && (
                       <p>
                         {planting.count} planta/plantor ·{" "}
-                        {planting.snapshot?.name}
+                        {plantingPlants(planting)
+                          .map((plant) => plant.name)
+                          .join(", ")}
                       </p>
                     )}
                     {chosen.unknownStart && <p>Etableringsdatum saknas.</p>}
                     <div className="stack">
                       {chosen.geometry && (
                         <>
-                          {chosen.geometry.shape === "polygon" && (
-                            <button
-                              disabled={!!chosen.locked}
-                              aria-pressed={tool === "vertices"}
-                              onClick={() =>
-                                setTool(
-                                  tool === "vertices" ? "select" : "vertices",
-                                )
-                              }
-                            >
-                              Redigera hörn
-                            </button>
-                          )}
                           <button
                             disabled={!!chosen.locked}
                             aria-pressed={tool === "resize"}
@@ -1177,7 +1228,9 @@ function Journal({
         (archived || !r.archived) &&
         (!type || r.eventType === type) &&
         (!plant ||
-          records.find((p) => p.id === r.targetId)?.plantId === plant) &&
+          plantingPlants(records.find((p) => p.id === r.targetId)).some(
+            (p) => p.id === plant,
+          )) &&
         (!area ||
           r.targetId === area ||
           records.some(

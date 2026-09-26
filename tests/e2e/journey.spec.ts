@@ -16,12 +16,199 @@ async function createGarden(page: Page) {
     page.getByRole("heading", { name: "Min trädgård", exact: true, level: 1 }),
   ).toBeVisible();
 }
+test("Only rectangles and ellipses can be created and selected in the form", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await expect(
+    page.getByRole("button", { name: "Polygon", exact: true }),
+  ).toHaveCount(0);
+  for (const tool of ["Rektangel", "Ellips"]) {
+    await draw(page, tool);
+    await expect(
+      page.getByRole("button", { name: "Redigera hörn" }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Redigera egenskaper", exact: true })
+      .click();
+    await expect(page.getByLabel("Form").locator("option")).toHaveText([
+      "Rektangel",
+      "Ellips / individ",
+    ]);
+    await page.getByRole("button", { name: "Spara", exact: true }).click();
+  }
+  await expect(page.locator(".structure-shape")).toHaveCount(2);
+});
 async function draw(page: Page, tool: string, x = 200, y = 150) {
   await page.getByRole("button", { name: tool, exact: true }).click();
   await page
     .getByRole("application", { name: "Trädgårdskarta" })
     .click({ position: { x, y } });
 }
+test("A mix can be planted using only checked species, without a dropdown plant", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await createPlant(page, "Blåklint");
+  await createPlant(page, "Lavendel");
+  await page.getByRole("button", { name: "Plantera", exact: true }).click();
+  await page.getByLabel("Växt att plantera").selectOption("");
+  await page.getByLabel("Blandad plantering", { exact: true }).check();
+  await page.getByLabel("Blandningens namn").fill("Blomsteräng utan huvudväxt");
+  await page.getByRole("checkbox", { name: "Blåklint", exact: true }).check();
+  await page.getByRole("application").click({ position: { x: 200, y: 150 } });
+  await page.getByLabel("Visas från").fill("2027-04-01");
+  await page
+    .getByRole("button", { name: "Spara plantering", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Välj minst två olika växter",
+  );
+  await expect(page.getByLabel("Osparad plantering")).toBeVisible();
+  await page.getByRole("checkbox", { name: "Lavendel", exact: true }).check();
+  await page
+    .getByRole("button", { name: "Spara plantering", exact: true })
+    .click();
+  await expect(page.locator(".plant-name")).toContainText(
+    "Blomsteräng utan huvudväxt",
+  );
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  const snapshot = await exported(page);
+  const planting = snapshot.records.find(
+    (record) => record.kind === "planting",
+  )!;
+  expect(planting.snapshot?.name).toBe("Blåklint");
+  expect(planting.additionalPlants?.map((plant) => plant.name)).toEqual([
+    "Lavendel",
+  ]);
+  expect(
+    snapshot.records.filter((record) => record.kind === "placement"),
+  ).toHaveLength(1);
+  await page.reload();
+  await expect(page.locator(".plant-name")).toContainText("Blåklint, Lavendel");
+});
+
+test("A meadow is one mixed planting with editable species, persistent snapshots and undo", async ({
+  page,
+}, testInfo) => {
+  await createGarden(page);
+  for (const name of ["Lavendel", "Blåklint", "Krokus"])
+    await createPlant(page, name, name);
+  await page.getByRole("button", { name: "Plantera", exact: true }).click();
+  await page
+    .getByLabel("Växt att plantera")
+    .selectOption({ label: "Lavendel" });
+  await page.getByLabel("Blandad plantering", { exact: true }).check();
+  await page.getByLabel("Blandningens namn").fill("Blomsteräng");
+  await page.getByLabel("Antal plantor").fill("100");
+  const box = await page.getByRole("application").boundingBox();
+  await page.mouse.move(box!.x + 150, box!.y + 150);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + 350, box!.y + 260);
+  await page.mouse.up();
+  await page.getByLabel("Visas från").fill("2027-04-01");
+  await page
+    .getByRole("button", { name: "Spara plantering", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Välj minst två olika växter",
+  );
+  await expect(page.getByLabel("Osparad plantering")).toBeVisible();
+  await page.getByRole("checkbox", { name: "Blåklint", exact: true }).check();
+  await page.getByRole("checkbox", { name: "Krokus", exact: true }).check();
+  await page
+    .getByRole("button", { name: "Spara plantering", exact: true })
+    .click();
+  await expect(page.locator(".plant-shape")).toHaveCount(1);
+  await expect(page.locator(".plant-name")).toContainText("Blomsteräng");
+  await expect(page.locator(".plant-name")).toContainText(
+    "Lavendel, Blåklint, Krokus",
+  );
+  await expect(page.locator(".warnings")).toHaveCount(0);
+  const icons = page.locator(".mixture-icons .map-plant-icon");
+  expect(await icons.count()).toBeGreaterThan(6);
+  for (const name of ["Lavendel", "Blåklint", "Krokus"]) {
+    expect(
+      await page.locator(`.mixture-icons svg[aria-label="${name}"]`).count(),
+    ).toBeGreaterThan(1);
+  }
+  const layout = await icons.evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      x: Number(node.getAttribute("x")),
+      y: Number(node.getAttribute("y")),
+      size: Number(node.getAttribute("width")),
+      icon: node.getAttribute("aria-label"),
+    })),
+  );
+  expect(new Set(layout.map((item) => item.x)).size).toBeGreaterThan(3);
+  expect(new Set(layout.map((item) => item.y)).size).toBeGreaterThan(3);
+  layout.forEach((a, i) => {
+    for (const b of layout.slice(i + 1))
+      expect(
+        a.x + a.size <= b.x ||
+          b.x + b.size <= a.x ||
+          a.y + a.size <= b.y ||
+          b.y + b.size <= a.y,
+      ).toBe(true);
+  });
+  const backup = await exported(page);
+  const mixture = backup.records.find((r) => r.kind === "planting")!;
+  expect(mixture.count).toBe(100);
+  expect(mixture.additionalPlants?.map((p) => p.name).sort()).toEqual([
+    "Blåklint",
+    "Krokus",
+  ]);
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  await expect(page.locator(".plant-shape")).toHaveCount(0);
+  await page.getByRole("button", { name: "Gör om", exact: true }).click();
+  await expect(page.locator(".plant-shape")).toHaveCount(1);
+  await page.reload();
+  await page.getByLabel("Kartdatum").fill("2027-04-01");
+  await expect(page.locator(".plant-name")).toContainText("Blomsteräng");
+  expect(
+    await icons.evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        x: Number(node.getAttribute("x")),
+        y: Number(node.getAttribute("y")),
+        size: Number(node.getAttribute("width")),
+        icon: node.getAttribute("aria-label"),
+      })),
+    ),
+  ).toEqual(layout);
+  await page.locator(".plant-shape").click();
+  await page.screenshot({
+    path: testInfo.outputPath("mixed-meadow.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Redigera plantering och antal" })
+    .click();
+  await page.getByRole("checkbox", { name: "Krokus", exact: true }).uncheck();
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".plant-name")).toContainText("Lavendel, Blåklint");
+  await expect(page.locator(".plant-name")).not.toContainText("Krokus");
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  await expect(page.locator(".plant-name")).toContainText("Krokus");
+  await page.getByRole("link", { name: "Journal", exact: true }).click();
+  await page.getByRole("button", { name: "Ny journalhändelse" }).click();
+  await page
+    .getByLabel("Händelsetyp", { exact: true })
+    .last()
+    .selectOption("Vattning");
+  await page.getByLabel("Händelsedatum").fill("2027-04-01");
+  await page
+    .getByLabel("Gäller", { exact: true })
+    .selectOption({ label: "Blomsteräng" });
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  for (const name of ["Lavendel", "Blåklint", "Krokus"]) {
+    await page
+      .getByRole("combobox", { name: "Växt", exact: true })
+      .selectOption({ label: name });
+    await expect(page.locator(".calendar")).toContainText(
+      "Vattning · Blomsteräng",
+    );
+  }
+});
 async function exported(page: Page): Promise<Snapshot> {
   const pending = page.waitForEvent("download");
   await page
@@ -39,9 +226,13 @@ async function namedBed(page: Page, name: string) {
   await page.getByLabel("Namn", { exact: true }).fill(name);
   await page.getByRole("button", { name: "Spara", exact: true }).click();
 }
-async function createPlant(page: Page, name = "Morot, test A") {
+async function createPlant(page: Page, name = "Morot, test A", icon?: string) {
   await page.getByRole("button", { name: "Skapa egen växt" }).click();
   await page.getByLabel("Namn", { exact: true }).fill(name);
+  if (icon)
+    await page
+      .getByRole("button", { name: `Ikon: ${icon}`, exact: true })
+      .click();
   await page.getByRole("button", { name: "Spara", exact: true }).click();
   await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
 }
@@ -284,7 +475,6 @@ test("Changing toolbar modes clears the selected object and inspector", async ({
     "Panorera",
     "Rektangel",
     "Ellips",
-    "Polygon",
     "Gång",
     "Plantera",
   ]) {
@@ -759,9 +949,13 @@ test("Unsaved forms survive refused links and browser back; Escape cancels map d
   leave = true;
   await page.getByRole("link", { name: "Kartan", exact: true }).click();
   await expect(page.getByRole("application")).toBeVisible();
-  await page.getByRole("button", { name: "Polygon", exact: true }).click();
-  await page.getByRole("application").click({ position: { x: 200, y: 150 } });
+  await page.getByRole("button", { name: "Rektangel", exact: true }).click();
+  const drawingBox = await page.getByRole("application").boundingBox();
+  await page.mouse.move(drawingBox!.x + 200, drawingBox!.y + 150);
+  await page.mouse.down();
+  await page.mouse.move(drawingBox!.x + 300, drawingBox!.y + 250);
   await page.keyboard.press("Escape");
+  await page.mouse.up();
   await expect(page.locator("svg .structure-shape")).toHaveCount(0);
   await page.reload();
   await expect(page.locator("svg .structure-shape")).toHaveCount(0);
@@ -1026,33 +1220,10 @@ test("AT-04: sequential crops reuse the same bed without temporal overlap", asyn
   await expect(page.locator(".plant-shape")).toContainText("Grupp B");
   await expect(page.locator(".warnings")).toHaveCount(0);
 });
-test("AT-10: polygon corner drag, numeric geometry, bound rotation, zoom and persistent undo", async ({
+test("AT-10: numeric geometry, bound rotation, zoom and persistent undo", async ({
   page,
 }) => {
   await createGarden(page);
-  await page.getByRole("button", { name: "Polygon", exact: true }).click();
-  const map = page.getByRole("application");
-  await map.click({ position: { x: 90, y: 100 } });
-  await map.click({ position: { x: 160, y: 100 } });
-  await map.dblclick({ position: { x: 130, y: 180 } });
-  await expect(page.locator(".structure-shape")).toHaveCount(1);
-  await page
-    .getByRole("button", { name: "Redigera hörn", exact: true })
-    .click();
-  const handle = page.getByRole("button", {
-      name: "Flytta hörn 1",
-      exact: true,
-    }),
-    box = await handle.boundingBox();
-  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box!.x + 20, box!.y + 15);
-  await page.mouse.up();
-  await page
-    .getByRole("button", { name: "Redigera egenskaper", exact: true })
-    .click();
-  await page.getByLabel("Namn", { exact: true }).fill("Polygon");
-  await page.getByRole("button", { name: "Spara", exact: true }).click();
   await namedBed(page, "Bädd A");
   await page
     .getByRole("button", { name: "Redigera egenskaper", exact: true })

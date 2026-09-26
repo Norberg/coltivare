@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PlantIcon } from "./PlantIcon";
+import { mixtureLayout } from "./mixtureLayout";
 import { mapLayer, pathGeometry } from "./mapLayout";
 import { bounds } from "./geometry";
 import { snapMove, type SnapGuide } from "./snapping";
@@ -7,6 +8,7 @@ import { groupBounds, translateGroup } from "./groupMove";
 import { resizeBounds, resizeGeometry, type ResizeCorner } from "./resize";
 import {
   active,
+  plantingPlants,
   transform,
   worldGeometry,
   type Point,
@@ -18,11 +20,9 @@ export type Tool =
   | "select"
   | "move"
   | "resize"
-  | "vertices"
   | "pan"
   | "rectangle"
   | "ellipse"
-  | "polygon"
   | "path"
   | "planting";
 interface Props {
@@ -51,7 +51,6 @@ export function GardenMap(p: Props) {
   const [view, setView] = useState({ x: -1, y: -1, w: fitWidth });
   const [draft, setDraft] = useState<Geometry>();
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
-  const [polygon, setPolygon] = useState<Point[]>([]);
   const [multi, setMulti] = useState(false);
   const [marked, setMarked] = useState<string[]>([]);
   const [savingGroup, setSavingGroup] = useState(false);
@@ -63,7 +62,6 @@ export function GardenMap(p: Props) {
     pan?: typeof view;
     client?: Point;
     scale?: number;
-    vertex?: number;
     resize?: ResizeCorner;
     group?: RecordData[];
     marquee?: boolean;
@@ -149,7 +147,6 @@ export function GardenMap(p: Props) {
     setSnapGuides([]);
     setDraft(undefined);
     setGesture(undefined);
-    setPolygon([]);
     p.onCancel();
   };
   useEffect(() => {
@@ -161,7 +158,6 @@ export function GardenMap(p: Props) {
         setDraft(undefined);
         setSnapGuides([]);
         setGesture(undefined);
-        setPolygon([]);
       }
     };
     window.addEventListener("keydown", escape);
@@ -197,6 +193,10 @@ export function GardenMap(p: Props) {
           planting?.snapshot?.color ??
           (r.category === "Gång" ? "#d1b899" : undefined);
         const g = preview(r);
+        const mixed = !!planting?.additionalPlants?.length;
+        const mixedIcons = mixed
+          ? mixtureLayout(g, plantingPlants(planting))
+          : [];
         return (
           <g
             key={r.id}
@@ -236,11 +236,16 @@ export function GardenMap(p: Props) {
           >
             <title>
               {r.name}
+              {!!planting?.additionalPlants?.length &&
+                `: ${plantingPlants(planting)
+                  .map((plant) => plant.name)
+                  .join(", ")}`}
               {r.locked ? " (låst)" : ""}
             </title>
             {shape(g, color)}
             {r.kind === "placement" &&
               (!icon || icon === "none") &&
+              !planting?.additionalPlants?.length &&
               byId.get(r.plantingId!)?.count === 1 && (
                 <circle
                   cx={g.width / 2}
@@ -249,7 +254,23 @@ export function GardenMap(p: Props) {
                   fill="#244c3a"
                 />
               )}
-            {icon && icon !== "none" && (
+            {mixedIcons.length > 0 && (
+              <g className="mixture-icons" pointerEvents="none">
+                {mixedIcons.map((item, index) => (
+                  <PlantIcon
+                    key={index}
+                    className="map-plant-icon"
+                    data-plant-id={item.plantId}
+                    icon={item.icon}
+                    x={item.x}
+                    y={item.y}
+                    width={item.size}
+                    height={item.size}
+                  />
+                ))}
+              </g>
+            )}
+            {!mixed && icon && icon !== "none" && (
               <PlantIcon
                 icon={icon}
                 className="map-plant-icon"
@@ -318,33 +339,6 @@ export function GardenMap(p: Props) {
                   />
                 );
               })}
-            {p.selected === r.id &&
-              !r.locked &&
-              p.tool === "vertices" &&
-              g.shape === "polygon" &&
-              g.points!.map((point, index) => (
-                <circle
-                  key={index}
-                  aria-label={`Flytta hörn ${index + 1}`}
-                  role="button"
-                  cx={point.x}
-                  cy={point.y}
-                  r={view.w * 0.006}
-                  fill="#fff"
-                  stroke="#bc791a"
-                  strokeWidth={view.w * 0.0015}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    svg.current?.setPointerCapture(e.pointerId);
-                    setGesture({
-                      start: point,
-                      record: r,
-                      original: g,
-                      vertex: index,
-                    });
-                  }}
-                />
-              ))}
           </g>
         );
       }),
@@ -464,19 +458,7 @@ export function GardenMap(p: Props) {
           if (p.tool === "select" || p.tool === "move") return;
           svg.current?.setPointerCapture(e.pointerId);
           const pt = point(e);
-          if (p.tool === "polygon") {
-            setPolygon((previous) =>
-              previous.length &&
-              Math.hypot(
-                previous[previous.length - 1].x - pt.x,
-                previous[previous.length - 1].y - pt.y,
-              ) < 0.001
-                ? previous
-                : [...previous, pt],
-            );
-            return;
-          }
-          if (p.tool === "pan" || p.tool === "resize" || p.tool === "vertices")
+          if (p.tool === "pan" || p.tool === "resize")
             setGesture({
               start: pt,
               pan: view,
@@ -512,21 +494,6 @@ export function GardenMap(p: Props) {
                 p.snap,
               ),
             );
-          } else if (gesture.vertex !== undefined && gesture.original) {
-            const local = transform(pt, gesture.original, true);
-            const points = gesture.original.points!.map((p, i) =>
-              i === gesture.vertex ? local : p,
-            );
-            setDraft({
-              ...gesture.original,
-              points,
-              width:
-                Math.max(...points.map((p) => p.x)) -
-                Math.min(...points.map((p) => p.x)),
-              height:
-                Math.max(...points.map((p) => p.y)) -
-                Math.min(...points.map((p) => p.y)),
-            });
           } else if (gesture.record && gesture.original) {
             if (
               gesture.group &&
@@ -636,22 +603,6 @@ export function GardenMap(p: Props) {
           setSnapGuides([]);
         }}
         onPointerCancel={cancel}
-        onDoubleClick={() => {
-          if (p.tool === "polygon" && polygon.length >= 3) {
-            const x = Math.min(...polygon.map((v) => v.x)),
-              y = Math.min(...polygon.map((v) => v.y));
-            p.onCreate({
-              x,
-              y,
-              width: Math.max(...polygon.map((v) => v.x)) - x,
-              height: Math.max(...polygon.map((v) => v.y)) - y,
-              rotation: 0,
-              shape: "polygon",
-              points: polygon.map((v) => ({ x: v.x - x, y: v.y - y })),
-            });
-            setPolygon([]);
-          }
-        }}
       >
         <defs>
           <pattern id="grid" width="1" height="1" patternUnits="userSpaceOnUse">
@@ -708,11 +659,16 @@ export function GardenMap(p: Props) {
             .map((r) => {
               const planting = byId.get(r.plantingId!);
               const icon = planting?.icon ?? planting?.snapshot?.icon;
+              const hasIcons = planting?.additionalPlants?.length
+                ? plantingPlants(planting).some(
+                    (plant) => plant.icon && plant.icon !== "none",
+                  )
+                : !!icon && icon !== "none";
               const g = preview(r);
               const position = transform(
                 {
                   x: g.width / 2,
-                  y: icon && icon !== "none" ? g.height : g.height / 2,
+                  y: hasIcons ? g.height : g.height / 2,
                 },
                 g,
               );
@@ -722,11 +678,23 @@ export function GardenMap(p: Props) {
                   className="plant-name"
                   x={position.x}
                   y={position.y}
-                  dy={icon && icon !== "none" ? "1em" : ".35em"}
+                  dy={hasIcons ? "1em" : ".35em"}
                   textAnchor="middle"
                   fontSize={view.w * 0.025}
                 >
                   {planting?.name || r.name}
+                  {!!planting?.additionalPlants?.length && (
+                    <tspan
+                      x={position.x}
+                      dy="1.2em"
+                      fontSize="65%"
+                      stroke="none"
+                    >
+                      {plantingPlants(planting)
+                        .map((plant) => plant.name)
+                        .join(", ")}
+                    </tspan>
+                  )}
                 </text>
               );
             })}
@@ -749,14 +717,6 @@ export function GardenMap(p: Props) {
             {shape(draft)}
           </g>
         )}
-        {polygon.length > 0 && (
-          <polyline
-            points={polygon.map((v) => `${v.x},${v.y}`).join(" ")}
-            fill="#a4ba8c55"
-            stroke="#244c3a"
-            strokeWidth=".06"
-          />
-        )}
         <g
           transform={`translate(${view.x + 0.5} ${view.y + view.w * 0.7 - 0.6})`}
           pointerEvents="none"
@@ -775,21 +735,17 @@ export function GardenMap(p: Props) {
       <div className="map-caption">
         <span>↑ N</span>
         <span>
-          {p.tool === "polygon"
-            ? "Klicka för hörn · dubbelklicka för att sluta polygonen"
-            : p.tool === "path"
-              ? "Dra gångens mittlinje genom landet · släpp för att spara"
-              : p.tool === "resize"
-                ? "Dra ett hörn för att ändra storlek · släpp för att spara"
-                : p.tool === "vertices"
-                  ? "Dra ett polygonhörn · släpp för att spara"
-                  : p.tool === "pan"
-                    ? "Dra för att panorera"
-                    : p.tool === "select"
-                      ? "Klicka på ett objekt för att välja det"
-                      : p.tool === "move"
-                        ? "Dra ett objekt · hjälplinjer visar kantsnäppning"
-                        : "Klicka eller dra för att skapa"}{" "}
+          {p.tool === "path"
+            ? "Dra gångens mittlinje genom landet · släpp för att spara"
+            : p.tool === "resize"
+              ? "Dra ett hörn för att ändra storlek · släpp för att spara"
+              : p.tool === "pan"
+                ? "Dra för att panorera"
+                : p.tool === "select"
+                  ? "Klicka på ett objekt för att välja det"
+                  : p.tool === "move"
+                    ? "Dra ett objekt · hjälplinjer visar kantsnäppning"
+                    : "Klicka eller dra för att skapa"}{" "}
           · Esc avbryter
         </span>
       </div>

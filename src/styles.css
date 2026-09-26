@@ -666,17 +666,13 @@ small {
   color: #876229;
   font-size: 12px;
 }
-.vertex {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-.vertex .field {
-  width: 40%;
-}
 legend {
   font-size: 13px;
   margin-top: 15px;
+}
+.mixture-picker label {
+  display: block;
+  margin: 6px 0;
 }
 .loading {
   padding: 15vh 10vw;

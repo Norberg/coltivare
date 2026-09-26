@@ -5,6 +5,61 @@ import { makeRecord } from "../src/domain";
 import { Field } from "../src/Forms";
 import { formatMeters } from "../src/format";
 
+test.each(["rectangle", "ellipse", "polygon"] as const)(
+  "%s geometry offers no new polygons or corner editing and preserves untouched data",
+  async (shape) => {
+    const record = makeRecord("object", crypto.randomUUID());
+    record.geometry = {
+      x: 1,
+      y: 2,
+      width: 3,
+      height: 4,
+      rotation: 0,
+      shape,
+      ...(shape === "polygon"
+        ? {
+            points: [
+              { x: 0, y: 0 },
+              { x: 3, y: 0 },
+              { x: 0, y: 4 },
+            ],
+          }
+        : {}),
+    };
+    const save = jest.fn().mockResolvedValue(undefined);
+    render(
+      <RecordForm
+        record={record}
+        records={[]}
+        save={save}
+        cancel={() => {}}
+        onDirty={() => {}}
+      />,
+    );
+    const form = screen.getByLabelText("Form") as HTMLSelectElement;
+    expect(
+      Array.from(form.options)
+        .filter((option) => !option.disabled)
+        .map((option) => option.value),
+    ).toEqual(["rectangle", "ellipse"]);
+    expect(form).toHaveValue(shape);
+    expect(
+      screen.queryByText("Polygonens hörn (lokala meter)"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Spara"));
+    expect(save.mock.calls[0][0][0].after.geometry).toEqual(record.geometry);
+    if (shape === "polygon") {
+      fireEvent.change(form, { target: { value: "rectangle" } });
+      fireEvent.click(screen.getByText("Spara"));
+      expect(save.mock.calls[1][0][0].after.geometry).toEqual({
+        ...record.geometry,
+        shape: "rectangle",
+        points: undefined,
+      });
+    }
+  },
+);
+
 test("meters use at most two decimals without changing untouched geometry", () => {
   expect(formatMeters(4)).toBe("4");
   expect(formatMeters(1.2)).toBe("1,2");

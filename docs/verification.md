@@ -158,6 +158,61 @@ Escape, samma förflyttning för flera objekt, roterad bindning, atomisk
 rollback vid injicerat fel efter första skrivningen, återförsök, ångra/gör
 om och omladdning. Gruppflytten har också granskats visuellt.
 
+## Ändring: polygonverktyget borttaget
+
+Efter nytt användarbeslut ersätts det ursprungliga kravet på polygonritning
+och hörnredigering. Verktyget, hörnhandtagen och hörnfälten är borttagna;
+nya former är rektanglar och ellipser. Äldre polygondata bevaras för visning,
+flytt, skalning och export/import utan automatisk formkonvertering.
+
+Regressionstester kontrollerar att polygon inte kan väljas som ny form,
+att äldre geometri sparas oförändrad och att explicit byte till rektangel
+fungerar. Escape-testet avbryter nu en pågående rektangelritning.
+
+81 Jest-tester och 37 webbläsartester godkända. Typkontroll, lint och
+produktionsbygge godkända. Verktygen använder projektlokal cache, inte /tmp.
+
+## Utökning: blandade planteringar
+
+Plantera kan skapa en gemensam placering för flera arter, med eget namn,
+gemensamt totalantal och gemensamma datum. Den första artens gamla
+plantId/snapshot bevaras; ytterligare arter lagras som validerade,
+frysta katalogögonblicksbilder. Befintliga planteringar behöver ingen migrering.
+Extra arter kan läggas till och tas bort i planteringsformuläret.
+Kartan visar blandningens namn och artlista, och sökning samt journalens
+växtfilter omfattar alla ingående arter.
+
+Domän- och lagringstester täcker felaktiga/dubbla arter, frysta växtuppgifter,
+ångra/gör om, arbetsytebackup och ommappning av ID:n vid trädgårdsimport.
+Webbläsartestet skapar en blomsteräng, verifierar kravet på minst två arter,
+redigerar innehållet, laddar om och filtrerar journalen per ingående art.
+
+83 Jest-tester och 38 webbläsartester godkända; typkontroll, lint och
+produktionsbygge godkända. Blandningens namn och artlista har granskats
+visuellt. Ändringar av planteringar ingår nu i kartans ångrahistorik.
+
+Rättning: blandningar kan väljas enbart med kryssrutorna, utan en växt i
+rullistan. Båda urvalen slås ihop utan dubbletter före validering och sparning.
+Ett separat webbläsartest verifierar tom rullista, för få valda arter,
+bevarat utkast, lyckad sparning med två arter och omladdning.
+Efter rättningen: 83 enhetstester och 39 webbläsartester godkända, liksom
+typkontroll, lint och produktionsbygge.
+
+## Utökning: utspridda ikoner i blandningar
+
+Blandningars artikoner upprepas i separerade celler över hela ytan med små,
+deterministiska förskjutningar. Arterna varvas även mellan raderna.
+Ikonernas hela rutor måste rymmas inom formen; ellipser och äldre polygoner
+kontrolleras geometriskt. Mönstret följer flytt, rotation och storleksändring
+och ändras inte av panorering, zoom eller omladdning. Det är en illustration,
+inte en exakt avbildning av det registrerade antalet plantor.
+
+Tester täcker spridning, flera arter, frånvaro av överlapp, formgränser,
+smala och stora ytor samt arter utan ikon. Blomsterängens webbläsartest
+kontrollerar flera ikoner per art och oförändrat mönster efter omladdning.
+86 enhetstester och 39 webbläsartester godkända, liksom typkontroll, lint
+och produktionsbygge. Spridningen har också granskats visuellt.
+
 ## Drift och övriga avgränsningar
 
 Ingen publicering har utförts. Hostingens verkliga HTTPS/CSP-headers ska

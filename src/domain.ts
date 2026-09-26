@@ -49,6 +49,8 @@ export interface RecordData {
   objectId?: string;
   count?: number;
   snapshot?: RecordData;
+  /** Additional species snapshots; snapshot/plantId retain the first species. */
+  additionalPlants?: RecordData[];
   fields?: Record<string, string>;
   targetId?: string;
   date?: string;
@@ -60,6 +62,11 @@ export interface RecordData {
 export interface Change {
   before?: RecordData;
   after: RecordData;
+}
+export function plantingPlants(record: RecordData | undefined): RecordData[] {
+  return record?.snapshot
+    ? [record.snapshot, ...(record.additionalPlants || [])]
+    : [];
 }
 export interface History {
   id: string;
@@ -367,6 +374,7 @@ export function validateRecords(records: RecordData[]) {
       "objectId",
       "count",
       "snapshot",
+      "additionalPlants",
       "fields",
       "targetId",
       "date",
@@ -396,6 +404,11 @@ export function validateRecords(records: RecordData[]) {
         fail("Ogiltigt val.");
     if (r.snapshot && r.kind !== "planting")
       fail("Endast planteringar får ha katalogögonblicksbilder.");
+    if (
+      r.additionalPlants !== undefined &&
+      (r.kind !== "planting" || !Array.isArray(r.additionalPlants))
+    )
+      fail("Ogiltig växtblandning.");
     if (
       ["garden", "plant", "planting", "object"].includes(r.kind) &&
       !r.name.trim()
@@ -436,6 +449,21 @@ export function validateRecords(records: RecordData[]) {
       )
         fail("Ogiltig katalogögonblicksbild.");
       validateRecords([map.get(r.workspaceId)!, r.snapshot!]);
+      const species = new Set([r.plantId]);
+      for (const plant of r.additionalPlants || []) {
+        if (
+          !plant ||
+          plant.kind !== "plant" ||
+          species.has(plant.id) ||
+          plant.workspaceId !== r.workspaceId
+        )
+          fail(
+            "Blandningen måste innehålla olika växter från samma arbetsyta.",
+          );
+        ref(plant.id, "plant");
+        validateRecords([map.get(r.workspaceId)!, plant]);
+        species.add(plant.id);
+      }
     }
     if (r.kind === "placement") {
       if (r.layer !== "actual" || (!r.startDate && !r.unknownStart))

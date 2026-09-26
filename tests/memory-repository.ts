@@ -145,6 +145,12 @@ export class MemoryRepository implements Repository {
               id: ids.get(next.snapshot.id)!,
               workspaceId: workspace.id,
             };
+          if (next.additionalPlants)
+            next.additionalPlants = next.additionalPlants.map((plant) => ({
+              ...plant,
+              id: ids.get(plant.id)!,
+              workspaceId: workspace.id,
+            }));
           return next;
         });
       records = [...this.records, ...records];
