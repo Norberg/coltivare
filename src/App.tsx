@@ -479,6 +479,7 @@ export function App({ repository }: { repository: Repository }) {
                         setEditor(undefined);
                         setPlacementDraft(undefined);
                         setDirty(false);
+                        if (t !== tool) setSelected(undefined);
                         setTool(t);
                         setPlantingToPlace(undefined);
                         if (

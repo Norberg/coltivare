@@ -77,6 +77,36 @@ async function plant(
     .click();
   await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
 }
+test("Changing toolbar modes clears the selected object and inspector", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await draw(page, "Rektangel");
+  const object = page.locator(".structure-shape");
+  await expect(object).toHaveClass(/selected/);
+  for (const mode of [
+    "Flytta",
+    "Panorera",
+    "Rektangel",
+    "Ellips",
+    "Polygon",
+    "Gång",
+    "Plantera",
+  ]) {
+    await page.getByRole("button", { name: mode, exact: true }).click();
+    await expect(object).not.toHaveClass(/selected/);
+    await expect(page.locator(".right-panel h2")).toHaveCount(0);
+    await page.getByRole("button", { name: "Välj", exact: true }).click();
+    await expect(object).not.toHaveClass(/selected/);
+    await object.click();
+    await expect(object).toHaveClass(/selected/);
+  }
+  await page.getByRole("button", { name: "Flytta", exact: true }).click();
+  await object.click();
+  await expect(object).toHaveClass(/selected/);
+  await page.getByRole("button", { name: "Välj", exact: true }).click();
+  await expect(object).not.toHaveClass(/selected/);
+});
 test("A single plant defaults to a rectangle and can still be changed to an ellipse", async ({
   page,
 }) => {
