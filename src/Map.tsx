@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PlantIcon } from "./PlantIcon";
 import { mapLayer, pathGeometry } from "./mapLayout";
+import { bounds } from "./geometry";
+import { snapMove, type SnapGuide } from "./snapping";
 import { resizeBounds, resizeGeometry, type ResizeCorner } from "./resize";
 import {
   active,
@@ -29,6 +31,7 @@ interface Props {
   tool: Tool;
   grid: boolean;
   snap: boolean;
+  edgeSnap: boolean;
   structure: boolean;
   plants: boolean;
   archived: boolean;
@@ -44,6 +47,7 @@ export function GardenMap(p: Props) {
   const fitWidth = Math.max(p.garden.width! + 2, (p.garden.height! + 2) / 0.7);
   const [view, setView] = useState({ x: -1, y: -1, w: fitWidth });
   const [draft, setDraft] = useState<Geometry>();
+  const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [polygon, setPolygon] = useState<Point[]>([]);
   const [gesture, setGesture] = useState<{
     start: Point;
@@ -55,14 +59,17 @@ export function GardenMap(p: Props) {
     vertex?: number;
     resize?: ResizeCorner;
   }>();
-  const point = (e: React.PointerEvent | React.MouseEvent): Point => {
+  const point = (
+    e: React.PointerEvent | React.MouseEvent,
+    grid = p.snap,
+  ): Point => {
     const s = svg.current!;
     const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(
       s.getScreenCTM()!.inverse(),
     );
     return {
-      x: p.snap ? Math.round(pt.x * 10) / 10 : pt.x,
-      y: p.snap ? Math.round(pt.y * 10) / 10 : pt.y,
+      x: grid ? Math.round(pt.x * 10) / 10 : pt.x,
+      y: grid ? Math.round(pt.y * 10) / 10 : pt.y,
     };
   };
   const byId = useMemo(
@@ -85,7 +92,21 @@ export function GardenMap(p: Props) {
         .sort((a, b) => mapLayer(a) - mapLayer(b)),
     [p.records, p.archived, p.garden.id, p.date, p.structure, p.plants, byId],
   );
+  const snapTargets = useMemo(
+    () =>
+      p.edgeSnap
+        ? visible
+            .filter(
+              (r) =>
+                r.id !== gesture?.record?.id &&
+                r.objectId !== gesture?.record?.id,
+            )
+            .map((r) => bounds(worldGeometry(r, p.records)))
+        : [],
+    [visible, p.edgeSnap, p.records, gesture?.record?.id],
+  );
   const cancel = () => {
+    setSnapGuides([]);
     setDraft(undefined);
     setGesture(undefined);
     setPolygon([]);
@@ -98,6 +119,7 @@ export function GardenMap(p: Props) {
         !(event.target as HTMLElement).closest("input,textarea,select")
       ) {
         setDraft(undefined);
+        setSnapGuides([]);
         setGesture(undefined);
         setPolygon([]);
       }
@@ -151,7 +173,7 @@ export function GardenMap(p: Props) {
               if (!p.onSelect(r.id)) return;
               if (!r.locked && p.tool === "move") {
                 svg.current?.setPointerCapture(e.pointerId);
-                setGesture({ start: point(e), record: r, original: g });
+                setGesture({ start: point(e, false), record: r, original: g });
               }
             }}
           >
@@ -300,7 +322,10 @@ export function GardenMap(p: Props) {
         <button onClick={() => setView({ x: -1, y: -1, w: fitWidth })}>
           Hela trädgården
         </button>
-        <span>1 ruta = 1 m · snäppning 10 cm</span>
+        <span>
+          1 ruta = 1 m{p.snap ? " · snäppning 10 cm" : ""}
+          {p.edgeSnap ? " · kantsnäppning" : ""}
+        </span>
       </div>
       <svg
         ref={svg}
@@ -346,7 +371,7 @@ export function GardenMap(p: Props) {
         }}
         onPointerMove={(e) => {
           if (!gesture) return;
-          const pt = point(e),
+          const pt = point(e, p.tool === "move" ? false : p.snap),
             dx = pt.x - gesture.start.x,
             dy = pt.y - gesture.start.y;
           if (gesture.pan) {
@@ -386,13 +411,22 @@ export function GardenMap(p: Props) {
                 Math.max(...points.map((p) => p.y)) -
                 Math.min(...points.map((p) => p.y)),
             });
-          } else if (gesture.record && gesture.original)
-            setDraft({
+          } else if (gesture.record && gesture.original) {
+            const raw = {
               ...gesture.original,
               x: gesture.original.x + dx,
               y: gesture.original.y + dy,
-            });
-          else if (p.tool === "path")
+            };
+            const scale = svg.current!.getScreenCTM()!.a;
+            const result = snapMove(
+              raw,
+              snapTargets,
+              8 / Math.abs(scale),
+              p.snap,
+            );
+            setDraft(result.geometry);
+            setSnapGuides(result.guides);
+          } else if (p.tool === "path")
             setDraft(pathGeometry(gesture.start, pt, p.pathWidth || 0.8));
           else
             setDraft({
@@ -443,6 +477,7 @@ export function GardenMap(p: Props) {
           }
           setGesture(undefined);
           setDraft(undefined);
+          setSnapGuides([]);
         }}
         onPointerCancel={cancel}
         onDoubleClick={() => {
@@ -491,6 +526,26 @@ export function GardenMap(p: Props) {
           />
         )}
         {scene}
+        <g
+          className="snap-guides"
+          pointerEvents="none"
+          aria-label="Kantsnäppning"
+        >
+          {snapGuides.map((g) => (
+            <line
+              key={g.axis}
+              data-axis={g.axis}
+              x1={g.axis === "x" ? g.value : g.from}
+              y1={g.axis === "y" ? g.value : g.from}
+              x2={g.axis === "x" ? g.value : g.to}
+              y2={g.axis === "y" ? g.value : g.to}
+              stroke="#b35c20"
+              strokeWidth="2"
+              strokeDasharray="5 3"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </g>
         <g className="plant-labels" pointerEvents="none">
           {visible
             .filter((r) => r.kind === "placement")
@@ -580,7 +635,7 @@ export function GardenMap(p: Props) {
                     : p.tool === "select"
                       ? "Klicka på ett objekt för att välja det"
                       : p.tool === "move"
-                        ? "Dra ett objekt för att flytta det"
+                        ? "Dra ett objekt · hjälplinjer visar kantsnäppning"
                         : "Klicka eller dra för att skapa"}{" "}
           · Esc avbryter
         </span>

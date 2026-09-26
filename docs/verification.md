@@ -130,6 +130,20 @@ produktionsbygge. Det nya UI-provet kontrollerar lagerordning oberoende av
 skapandeordning, ikon och synligt namn, diagonal gång med rätt bredd,
 oförändrat land, ångra/gör om och omladdning. Resultatet har granskats visuellt.
 
+## Utökning: kantsnäppning i Flytta
+
+Separat, beständigt val för snäppning mot synliga figurers yttergränser.
+Tröskeln är åtta skärmpixlar; kantsnäppning har företräde framför rutnätet.
+Det flyttade objektet och dess bundna placeringar undantas som snäppmål.
+Hjälplinjer visar matchningen. Roterade/böjda former använder omslutande
+gränser i kartans X-/Y-led, inte konturföljning längs sneda eller krökta kanter.
+
+Verifierat med 74 Jest-tester och 34 browserprov, typkontroll, lint och
+produktionsbygge. Enhetsprov omfattar även 33 cm-kvadrater. UI-provet flyttar
+3,3 m-kvadrater kant i kant utanför 10 cm-rutnätet och kontrollerar exakta
+koordinater, hjälplinjer, ångra/gör om och beständiga inställningar.
+Resultatet har granskats visuellt.
+
 ## Drift och övriga avgränsningar
 
 Ingen publicering har utförts. Hostingens verkliga HTTPS/CSP-headers ska

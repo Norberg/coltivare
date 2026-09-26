@@ -86,6 +86,15 @@ separat verktyg där du drar ett objekt till en ny position; detta är en
 ritkorrigering, inte en daterad fysisk flytt. **Panorera** flyttar kartvyn.
 För polygoners enskilda hörn använder du **Redigera hörn** i egenskapspanelen.
 
+I **Flytta** kan **Snäpp mot odlingar** koppla ihop figurernas ytterkanter
+exakt, även vid mått som 3,3 m eller 33 cm. Kantsnäppningen har företräde
+framför 10 cm-rutnätet när du är nära en annan synlig figur. Streckade
+hjälplinjer visar matchande kanter. Inställningen är separat från
+**Snäppning** (10 cm) och sparas lokalt. Det som flyttas och dess bundna
+planteringar används inte som snäppmål. Jämförelsen görs mot yttergränserna
+i kartans X-/Y-led; för roterade och böjda former är dessa omslutande gränser,
+inte snäppning längs valfri sned eller krökt kontur.
+
 **Gång** ritar en gång genom odlingsland: ange gångbredden i meter och dra
 från start till slut längs gångens mittlinje. Gången är en vanlig redigerbar
 figur och kan flyttas, roteras, skalas, färgsättas och ångras. Landet delas

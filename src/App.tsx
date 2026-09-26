@@ -68,6 +68,7 @@ export function App({ repository }: { repository: Repository }) {
     [plants, setPlants] = useState(true);
   const [plantId, setPlantId] = useState("");
   const [count, setCount] = useState("1");
+  const [edgeSnap, setEdgeSnap] = useState(true);
   const [pathWidth, setPathWidth] = useState(0.8);
   const [placementDraft, setPlacementDraft] = useState<Geometry>();
   const placementHeading = useRef<HTMLHeadingElement>(null);
@@ -134,6 +135,7 @@ export function App({ repository }: { repository: Repository }) {
   useEffect(() => {
     setGrid(workspace?.fields?.grid !== "false");
     setSnap(workspace?.fields?.snap !== "false");
+    setEdgeSnap(workspace?.fields?.edgeSnap !== "false");
     setStructure(workspace?.fields?.structure !== "false");
     setPlants(workspace?.fields?.plants !== "false");
   }, [workspace?.fields]);
@@ -552,6 +554,7 @@ export function App({ repository }: { repository: Repository }) {
                   ["Snäppning", snap, setSnap],
                   ["Struktur", structure, setStructure],
                   ["Planteringar", plants, setPlants],
+                  ["Snäpp mot odlingar", edgeSnap, setEdgeSnap],
                 ].map(([label, value, set], index) => (
                   <label className="toggle" key={label as string}>
                     <input
@@ -568,9 +571,13 @@ export function App({ repository }: { repository: Repository }) {
                                   ...workspace,
                                   fields: {
                                     ...workspace.fields,
-                                    [["grid", "snap", "structure", "plants"][
-                                      index
-                                    ]]: String(e.target.checked),
+                                    [[
+                                      "grid",
+                                      "snap",
+                                      "structure",
+                                      "plants",
+                                      "edgeSnap",
+                                    ][index]]: String(e.target.checked),
                                   },
                                 },
                               },
@@ -686,6 +693,7 @@ export function App({ repository }: { repository: Repository }) {
                     tool={tool}
                     grid={grid}
                     snap={snap}
+                    edgeSnap={edgeSnap}
                     structure={structure}
                     plants={plants}
                     archived={archived}

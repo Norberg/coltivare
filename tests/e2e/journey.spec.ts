@@ -77,6 +77,61 @@ async function plant(
     .click();
   await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
 }
+test("Move snaps 3.3 metre squares edge to edge independently of the grid", async ({
+  page,
+}, testInfo) => {
+  await createGarden(page);
+  for (const [name, x] of [
+    ["A", "1,23"],
+    ["B", "8"],
+  ]) {
+    await namedBed(page, name);
+    await page
+      .getByRole("button", { name: "Redigera egenskaper", exact: true })
+      .click();
+    await page.getByLabel("X (m)", { exact: true }).fill(x);
+    await page.getByLabel("Y (m)", { exact: true }).fill("2,07");
+    await page.getByLabel("Bredd (m)", { exact: true }).fill("3,3");
+    await page.getByLabel("Höjd (m)", { exact: true }).fill("3,3");
+    await page.getByRole("button", { name: "Spara", exact: true }).click();
+  }
+  await page.getByRole("button", { name: "Flytta", exact: true }).click();
+  const object = page
+    .locator(".structure-shape")
+    .filter({ has: page.locator("title", { hasText: /^B$/ }) });
+  const b = (await object.locator("rect").first().boundingBox())!;
+  const scale = await page
+    .getByRole("application")
+    .evaluate((node) => (node as SVGGraphicsElement).getScreenCTM()!.a);
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    b.x + b.width / 2 + (4.57 - 8) * scale,
+    b.y + b.height / 2 + 0.04 * scale,
+    { steps: 10 },
+  );
+  await expect(page.locator(".snap-guides line")).toHaveCount(2);
+  await page.screenshot({ path: testInfo.outputPath("edge-snapping.png") });
+  await page.mouse.up();
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  let saved = (await exported(page)).records.find((r) => r.name === "B")!;
+  expect(saved.geometry!.x).toBeCloseTo(4.53, 10);
+  expect(saved.geometry!.y).toBeCloseTo(2.07, 10);
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  saved = (await exported(page)).records.find((r) => r.name === "B")!;
+  expect(saved.geometry!.x).toBe(8);
+  await page.getByRole("button", { name: "Gör om", exact: true }).click();
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  await page.getByLabel("Snäpp mot odlingar", { exact: true }).uncheck();
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  await page.reload();
+  await expect(
+    page.getByLabel("Snäpp mot odlingar", { exact: true }),
+  ).not.toBeChecked();
+  await expect(page.getByLabel("Snäppning", { exact: true })).toBeChecked();
+  saved = (await exported(page)).records.find((r) => r.name === "B")!;
+  expect(saved.geometry!.x).toBeCloseTo(4.53, 10);
+});
 test("Changing toolbar modes clears the selected object and inspector", async ({
   page,
 }) => {
