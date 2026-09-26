@@ -1,3 +1,4 @@
+import { plantIcons, type PlantIconId } from "./plantAppearance";
 export type Kind =
   | "workspace"
   | "garden"
@@ -37,6 +38,8 @@ export interface RecordData {
   timezone?: string;
   category?: string;
   locked?: boolean;
+  color?: string;
+  icon?: PlantIconId | "none";
   startDate?: string;
   endDate?: string;
   unknownStart?: boolean;
@@ -353,6 +356,8 @@ export function validateRecords(records: RecordData[]) {
       "timezone",
       "category",
       "locked",
+      "color",
+      "icon",
       "startDate",
       "endDate",
       "unknownStart",
@@ -372,6 +377,17 @@ export function validateRecords(records: RecordData[]) {
     ];
     if (Object.keys(r).some((key) => !allowedKeys.includes(key)))
       fail("Posten innehåller okända fält.");
+    if (
+      r.color !== undefined &&
+      (typeof r.color !== "string" || !/^#[0-9a-f]{6}$/i.test(r.color))
+    )
+      fail("Färgen måste anges som en sexsiffrig hexkod.");
+    if (
+      r.icon !== undefined &&
+      (typeof r.icon !== "string" ||
+        (r.icon !== "none" && !Object.hasOwn(plantIcons, r.icon)))
+    )
+      fail("Okänd växtikon.");
     for (const key of ["unit", "category", "timezone", "lastGardenId"] as const)
       if (r[key] !== undefined && typeof r[key] !== "string")
         fail("Ogiltigt textfält.");

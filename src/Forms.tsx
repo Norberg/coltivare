@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatMeters } from "./format";
+import { PlantIcon } from "./PlantIcon";
+import { plantIcons, type PlantIconId } from "./plantAppearance";
 import {
   addDays,
   categories,
@@ -118,6 +120,10 @@ export function RecordForm({
     onDirty(true);
   };
   const geometry = draft.geometry;
+  const placementPlanting =
+    draft.kind === "placement"
+      ? records.find((r) => r.id === draft.plantingId)
+      : undefined;
   const field = (label: string, key: "name" | "notes") => (
     <Field
       label={label}
@@ -210,6 +216,70 @@ export function RecordForm({
               }[record.kind]}
       </h3>
       {field("Namn", "name")}
+      {["object", "placement", "plant", "planting"].includes(draft.kind) && (
+        <fieldset className="appearance-fields">
+          <legend>Utseende på kartan</legend>
+          <label className="field">
+            Figurfärg
+            <input
+              type="color"
+              aria-label="Figurfärg"
+              value={
+                draft.color ||
+                draft.snapshot?.color ||
+                placementPlanting?.color ||
+                placementPlanting?.snapshot?.color ||
+                (draft.kind === "object" ? "#b8c79b" : "#6b9769")
+              }
+              onChange={(e) => edit({ color: e.target.value })}
+            />
+          </label>
+          {draft.color && (
+            <button type="button" onClick={() => edit({ color: undefined })}>
+              Återställ standardfärg
+            </button>
+          )}
+          {["plant", "planting"].includes(draft.kind) && (
+            <>
+              <p className="hint">
+                Välj en växtikon. Nya planteringar får en kopia av växtens färg
+                och ikon; befintliga ändras separat.
+              </p>
+              <div
+                className="plant-icon-picker"
+                role="group"
+                aria-label="Växtikon"
+              >
+                <button
+                  type="button"
+                  aria-pressed={
+                    (draft.icon ?? draft.snapshot?.icon ?? "none") === "none"
+                  }
+                  onClick={() => edit({ icon: "none" })}
+                >
+                  Ingen ikon
+                </button>
+                {(Object.entries(plantIcons) as [PlantIconId, string][]).map(
+                  ([icon, label]) => (
+                    <button
+                      type="button"
+                      key={icon}
+                      aria-label={`Ikon: ${label}`}
+                      aria-pressed={
+                        (draft.icon ?? draft.snapshot?.icon) === icon
+                      }
+                      onClick={() => edit({ icon })}
+                    >
+                      <PlantIcon icon={icon} aria-hidden="true" />
+                      <span>{label}</span>
+                    </button>
+                  ),
+                )}
+              </div>
+            </>
+          )}
+        </fieldset>
+      )}
       {draft.kind === "garden" && (
         <>
           <Field

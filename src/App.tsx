@@ -22,12 +22,14 @@ import {
   type Change,
   type Geometry,
   type RecordData,
+  numberValue,
 } from "./domain";
 import { gardenWarnings } from "./warnings";
 import type { Repository } from "./repository";
 import { GardenMap, type Tool } from "./Map";
 import { Field, RecordForm } from "./Forms";
 import { formatMeters } from "./format";
+import { PlantIcon } from "./PlantIcon";
 
 export function App({ repository }: { repository: Repository }) {
   const cache = useQueryClient();
@@ -66,6 +68,7 @@ export function App({ repository }: { repository: Repository }) {
     [plants, setPlants] = useState(true);
   const [plantId, setPlantId] = useState("");
   const [count, setCount] = useState("1");
+  const [pathWidth, setPathWidth] = useState(0.8);
   const [placementDraft, setPlacementDraft] = useState<Geometry>();
   const placementHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -247,8 +250,9 @@ export function App({ repository }: { repository: Repository }) {
     }
     const record = makeRecord("object", workspace.id, {
       gardenId: garden.id,
-      name: "Ny odlingsyta",
-      category: "Odlingsland",
+      name: tool === "path" ? "Ny gång" : "Ny odlingsyta",
+      category: tool === "path" ? "Gång" : "Odlingsland",
+      ...(tool === "path" ? { color: "#d1b899" } : {}),
       geometry: g,
     });
     try {
@@ -290,10 +294,7 @@ export function App({ repository }: { repository: Repository }) {
       plantingId: p.id,
       name: p.name,
       layer: "actual",
-      geometry: {
-        ...localGeometry,
-        shape: p.count === 1 ? "ellipse" : placementDraft.shape,
-      },
+      geometry: localGeometry,
       startDate: unknown ? undefined : from,
       endDate: last ? addDays(last, 1) : undefined,
       unknownStart: unknown,
@@ -453,16 +454,19 @@ export function App({ repository }: { repository: Repository }) {
                 <div className="tools">
                   {(
                     [
-                      ["select", "Välj / flytta"],
+                      ["select", "Välj"],
+                      ["move", "Flytta"],
                       ["pan", "Panorera"],
                       ["rectangle", "Rektangel"],
                       ["ellipse", "Ellips"],
                       ["polygon", "Polygon"],
+                      ["path", "Gång"],
                       ["planting", "Plantera"],
                     ] as [Tool, string][]
                   ).map(([t, label]) => (
                     <button
                       className={tool === t ? "active" : ""}
+                      aria-pressed={tool === t}
                       key={t}
                       onClick={() => {
                         if (
@@ -489,6 +493,25 @@ export function App({ repository }: { repository: Repository }) {
                     </button>
                   ))}
                 </div>
+                {tool === "path" && (
+                  <div className="plant-picker">
+                    <Field
+                      label="Gångbredd (m)"
+                      meters
+                      value={pathWidth}
+                      onChange={(v) => {
+                        const n = numberValue(v);
+                        if (Number.isFinite(n) && n >= 0.1) setPathWidth(n);
+                        else
+                          setError("Gångbredden måste vara minst 0,1 meter.");
+                      }}
+                    />
+                    <p className="hint">
+                      Dra gångens mittlinje genom landet. Gången läggs ovanpå
+                      landet utan att dela eller radera det.
+                    </p>
+                  </div>
+                )}
                 {tool === "planting" && (
                   <div className="plant-picker">
                     <label className="field">
@@ -585,11 +608,23 @@ export function App({ repository }: { repository: Repository }) {
                         }}
                       >
                         <span>
-                          {r.kind === "plant"
-                            ? "♧"
-                            : r.kind === "planting"
-                              ? "●"
-                              : "▱"}
+                          {(r.icon ?? r.snapshot?.icon) &&
+                          (r.icon ?? r.snapshot?.icon) !== "none" ? (
+                            <PlantIcon
+                              icon={
+                                (r.icon ?? r.snapshot?.icon) as Exclude<
+                                  RecordData["icon"],
+                                  undefined | "none"
+                                >
+                              }
+                            />
+                          ) : r.kind === "plant" ? (
+                            "♧"
+                          ) : r.kind === "planting" ? (
+                            "●"
+                          ) : (
+                            "▱"
+                          )}
                         </span>
                         <span>
                           {r.name}
@@ -658,6 +693,7 @@ export function App({ repository }: { repository: Repository }) {
                     }}
                     onCreate={createGeometry}
                     placementDraft={placementDraft}
+                    pathWidth={pathWidth}
                     onMove={async (r, g) => {
                       try {
                         await save(
@@ -867,6 +903,41 @@ export function App({ repository }: { repository: Repository }) {
                     )}
                     {chosen.unknownStart && <p>Etableringsdatum saknas.</p>}
                     <div className="stack">
+                      {chosen.geometry && (
+                        <>
+                          {chosen.geometry.shape === "polygon" && (
+                            <button
+                              disabled={!!chosen.locked}
+                              aria-pressed={tool === "vertices"}
+                              onClick={() =>
+                                setTool(
+                                  tool === "vertices" ? "select" : "vertices",
+                                )
+                              }
+                            >
+                              Redigera hörn
+                            </button>
+                          )}
+                          <button
+                            disabled={!!chosen.locked}
+                            aria-pressed={tool === "resize"}
+                            onClick={() =>
+                              setTool(tool === "resize" ? "select" : "resize")
+                            }
+                          >
+                            {tool === "resize"
+                              ? "Avsluta storleksändring"
+                              : "Ändra storlek"}
+                          </button>
+                          {tool === "resize" && (
+                            <p className="hint">
+                              Dra i ett hörn på kartan. Släpp för att spara.
+                              Escape avbryter dragningen. Bundna plantor
+                              behåller sina mått och avstånd.
+                            </p>
+                          )}
+                        </>
+                      )}
                       <button
                         className="btn btn-primary"
                         onClick={() => edit(chosen)}

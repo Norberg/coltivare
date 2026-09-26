@@ -74,6 +74,35 @@ Ctrl/Cmd+Z respektive Ctrl/Cmd+Shift+Z fungerar när du inte skriver i ett fält
 Escape avbryter ritning/dragning. Objekt kan även väljas i den sökbara listan;
 mått, rotation och polygonhörn kan anges i formulär. Decimaler med komma stöds.
 
+Markera en yta eller placering och välj **Ändra storlek**. Dra något av de fyra
+hörnhandtagen och släpp för att spara; det motsatta hörnet ligger kvar.
+Rektanglar, ellipser och polygoner kan skalas även när de är roterade.
+Escape avbryter pågående dragning. Låsta objekt måste låsas upp först.
+Ångra/Gör om fungerar även för storleksändringar. Bundna plantors egna mått
+och lokala avstånd skalas inte när deras yta ändrar storlek.
+
+**Välj** markerar objekt utan att flytta eller ändra dem. **Flytta** är ett
+separat verktyg där du drar ett objekt till en ny position; detta är en
+ritkorrigering, inte en daterad fysisk flytt. **Panorera** flyttar kartvyn.
+För polygoners enskilda hörn använder du **Redigera hörn** i egenskapspanelen.
+
+**Gång** ritar en gång genom odlingsland: ange gångbredden i meter och dra
+från start till slut längs gångens mittlinje. Gången är en vanlig redigerbar
+figur och kan flyttas, roteras, skalas, färgsättas och ångras. Landet delas
+eller raderas inte. Ritordningen är alltid land/övrig struktur, sedan gångar,
+sedan växter, oberoende av i vilken ordning posterna skapades. Växtnamn visas
+över figurerna, även när växten har en ikon.
+
+Under **Redigera egenskaper → Utseende på kartan** väljer du figurfärg.
+Växtregistret och planteringar har dessutom 19 tecknade, lokala SVG-ikoner:
+oregano, lavendel, spenat, blåklint, ros, tulpan, pumpa, zucchini, morot och
+tomat, mangold, gul lök, röd lök, rosmarin, potatis, ärtor, oleander, pion
+och krokus. **Ingen ikon** tar bort symbolen. Nya planteringar ärver växtens
+utseende genom sin sparade katalogögonblicksbild. En ändring i registret
+ändrar inte gamla planteringar; välj **Redigera plantering och antal** för
+att ändra deras färg och ikon. En placerings egen figurfärg har företräde
+framför planteringens färg. Färger och ikoner följer med vid export/import.
+
 ## Säkerhetskopiering och flytt mellan enheter
 
 Under Lagring finns två olika exportflöden:

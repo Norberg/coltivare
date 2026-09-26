@@ -77,6 +77,241 @@ async function plant(
     .click();
   await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
 }
+test("A single plant defaults to a rectangle and can still be changed to an ellipse", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await createPlant(page);
+  await page.getByRole("button", { name: "Plantera", exact: true }).click();
+  await expect(page.getByLabel("Antal plantor")).toHaveValue("1");
+  await page.getByRole("application").click({ position: { x: 200, y: 150 } });
+  await page
+    .getByRole("button", { name: "Spara plantering", exact: true })
+    .click();
+  await expect(page.locator(".plant-shape > rect")).toHaveCount(1);
+  await page.reload();
+  await expect(page.locator(".plant-shape > rect")).toHaveCount(1);
+  await page.locator(".plant-shape").click();
+  await page
+    .getByRole("button", { name: "Redigera egenskaper", exact: true })
+    .click();
+  await expect(page.getByLabel("Form", { exact: true })).toHaveValue(
+    "rectangle",
+  );
+  await page.getByLabel("Form", { exact: true }).selectOption("ellipse");
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".plant-shape > ellipse")).toHaveCount(1);
+});
+test("Plants and names stay above beds; a path can be drawn across a bed", async ({
+  page,
+}, testInfo) => {
+  await createGarden(page);
+  await createPlant(page, "Lavendel");
+  await page
+    .getByRole("button", { name: "Redigera egenskaper", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Ikon: Lavendel", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await plant(page, "Lavendel", true);
+  await draw(page, "Rektangel");
+  const before = (await exported(page)).records.find(
+    (r) => r.kind === "object",
+  )!;
+  await page.getByRole("button", { name: "Gång", exact: true }).click();
+  await page.getByLabel("Gångbredd (m)", { exact: true }).fill("0,6");
+  await page.getByLabel("Gångbredd (m)", { exact: true }).blur();
+  const b = (await page.getByRole("application").boundingBox())!;
+  await page.mouse.move(b.x + 180, b.y + 130);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 280, b.y + 190, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.locator(".right-panel h2")).toHaveText("Ny gång");
+  const after = await exported(page);
+  expect(after.records.find((r) => r.id === before.id)?.geometry).toEqual(
+    before.geometry,
+  );
+  expect(
+    after.records.find((r) => r.category === "Gång")?.geometry,
+  ).toMatchObject({ shape: "rectangle", height: 0.6 });
+  const layers = page.locator("svg[role=application] > g[data-layer]");
+  expect(
+    await layers.evaluateAll((elements) =>
+      elements.map((e) => e.getAttribute("data-layer")),
+    ),
+  ).toEqual(["0", "1", "2"]);
+  await expect(page.locator(".plant-name")).toHaveText("Lavendel");
+  await expect(page.locator(".plant-name")).toBeVisible();
+  await expect(page.locator(".map-plant-icon")).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("path-and-plant-label.png"),
+  });
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  await expect(page.locator('g[data-layer="1"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Gör om", exact: true }).click();
+  await expect(page.locator('g[data-layer="1"]')).toHaveCount(1);
+  await page.reload();
+  expect(
+    await layers.evaluateAll((elements) =>
+      elements.map((e) => e.getAttribute("data-layer")),
+    ),
+  ).toEqual(["0", "1", "2"]);
+  await expect(page.locator(".plant-name")).toHaveText("Lavendel");
+});
+test("Select never moves objects; Move drags, saves and supports undo", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await draw(page, "Rektangel");
+  const object = page.locator(".structure-shape");
+  const before = await object.getAttribute("transform");
+  const drag = async () => {
+    const b = (await object.locator("rect").first().boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + 40, b.y + b.height / 2 + 20, {
+      steps: 5,
+    });
+    await page.mouse.up();
+  };
+  await page.getByRole("button", { name: "Välj", exact: true }).click();
+  await drag();
+  await expect(object).toHaveAttribute("transform", before!);
+  await expect(page.locator(".right-panel h2")).toHaveText("Ny odlingsyta");
+  await page.getByRole("button", { name: "Flytta", exact: true }).click();
+  await drag();
+  await expect(object).not.toHaveAttribute("transform", before!);
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  await expect(object).toHaveAttribute("transform", before!);
+});
+test("Figure colors and plant icons persist with snapshots and portable export", async ({
+  page,
+}, testInfo) => {
+  await createGarden(page);
+  await draw(page, "Rektangel");
+  await page
+    .getByRole("button", { name: "Redigera egenskaper", exact: true })
+    .click();
+  await page.getByLabel("Figurfärg", { exact: true }).fill("#e9ad65");
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".structure-shape > rect").first()).toHaveAttribute(
+    "fill",
+    "#e9ad65",
+  );
+  await page.getByRole("button", { name: "Skapa egen växt" }).click();
+  await page.getByLabel("Namn", { exact: true }).fill("Lavendel");
+  await expect(page.getByRole("button", { name: /^Ikon: / })).toHaveCount(19);
+  await page
+    .getByRole("button", { name: "Ikon: Lavendel", exact: true })
+    .click();
+  await page.getByLabel("Figurfärg", { exact: true }).fill("#bdb0e0");
+  await page
+    .getByRole("group", { name: "Växtikon", exact: true })
+    .screenshot({ path: testInfo.outputPath("plant-icons.png") });
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await plant(page, "Lavendel", true);
+  await expect(page.locator(".plant-shape > rect").first()).toHaveAttribute(
+    "fill",
+    "#bdb0e0",
+  );
+  await expect(page.locator(".map-plant-icon")).toHaveAttribute(
+    "aria-label",
+    "Lavendel",
+  );
+  await page.reload();
+  await expect(page.locator(".map-plant-icon")).toHaveAttribute(
+    "aria-label",
+    "Lavendel",
+  );
+  await page
+    .locator(".object-list button")
+    .filter({ hasText: "Växtregister" })
+    .click();
+  await page
+    .getByRole("button", { name: "Redigera egenskaper", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Ikon: Ros", exact: true }).click();
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".map-plant-icon")).toHaveAttribute(
+    "aria-label",
+    "Lavendel",
+  );
+  await page.locator(".plant-shape > rect").first().click();
+  await page
+    .getByRole("button", { name: "Redigera plantering och antal" })
+    .click();
+  await page.getByRole("button", { name: "Ikon: Tulpan", exact: true }).click();
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".map-plant-icon")).toHaveAttribute(
+    "aria-label",
+    "Tulpan",
+  );
+  const snapshot = await exported(page);
+  expect(snapshot.records.find((r) => r.kind === "object")?.color).toBe(
+    "#e9ad65",
+  );
+  expect(snapshot.records.find((r) => r.kind === "planting")).toMatchObject({
+    icon: "tulip",
+    snapshot: { icon: "lavender", color: "#bdb0e0" },
+  });
+  await page.getByRole("link", { name: "Lagring", exact: true }).click();
+  const download = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Exportera trädgård", exact: true })
+    .click();
+  await page
+    .locator("input[type=file]")
+    .setInputFiles((await (await download).path())!);
+  await page.getByRole("link", { name: "Kartan", exact: true }).click();
+  await expect(page.locator(".map-plant-icon")).toHaveAttribute(
+    "aria-label",
+    "Tulpan",
+  );
+  await expect(page.locator(".structure-shape > rect").first()).toHaveAttribute(
+    "fill",
+    "#e9ad65",
+  );
+});
+test("Resize handles save dimensions, undo, redo and cancel with Escape", async ({
+  page,
+}, testInfo) => {
+  await createGarden(page);
+  await draw(page, "Rektangel");
+  const shape = page.locator(".structure-shape > rect").first();
+  const before = await shape.getAttribute("width");
+  await page
+    .getByRole("button", { name: "Ändra storlek", exact: true })
+    .click();
+  await page.screenshot({ path: testInfo.outputPath("resize-handles.png") });
+  const handle = page.getByRole("button", {
+    name: "Ändra storlek se",
+    exact: true,
+  });
+  const drag = async (cancel = false) => {
+    const b = (await handle.boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + 45, b.y + b.height / 2 + 25, {
+      steps: 5,
+    });
+    if (cancel) await page.keyboard.press("Escape");
+    await page.mouse.up();
+  };
+  await drag();
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  await expect(shape).not.toHaveAttribute("width", before!);
+  const after = await shape.getAttribute("width");
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  await expect(shape).toHaveAttribute("width", before!);
+  await page.getByRole("button", { name: "Gör om", exact: true }).click();
+  await expect(shape).toHaveAttribute("width", after!);
+  await drag(true);
+  await expect(shape).toHaveAttribute("width", after!);
+  await page.reload();
+  await expect(shape).toHaveAttribute("width", after!);
+});
 test("AT-01–03: real IndexedDB garden, bed, planting and inclusive date boundaries", async ({
   page,
 }) => {
@@ -488,9 +723,7 @@ test("PERF-01: measured UI load with explicit synthetic 100/1000/2000 fixture", 
   await page
     .getByRole("button", { name: "Hela trädgården", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Välj / flytta", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Flytta", exact: true }).click();
   // Use the painted shape, not the group bounds (which also include its label).
   const target = page
       .locator(".plant-shape")
@@ -578,6 +811,9 @@ test("AT-10: polygon corner drag, numeric geometry, bound rotation, zoom and per
   await map.click({ position: { x: 160, y: 100 } });
   await map.dblclick({ position: { x: 130, y: 180 } });
   await expect(page.locator(".structure-shape")).toHaveCount(1);
+  await page
+    .getByRole("button", { name: "Redigera hörn", exact: true })
+    .click();
   const handle = page.getByRole("button", {
       name: "Flytta hörn 1",
       exact: true,

@@ -1,0 +1,22 @@
+export const plantIcons = {
+  oregano: "Oregano",
+  lavender: "Lavendel",
+  spinach: "Spenat",
+  cornflower: "Blåklint",
+  rose: "Ros",
+  tulip: "Tulpan",
+  pumpkin: "Pumpa",
+  zucchini: "Zucchini",
+  carrot: "Morot",
+  tomato: "Tomat",
+  chard: "Mangold",
+  yellowOnion: "Gul lök",
+  redOnion: "Röd lök",
+  rosemary: "Rosmarin",
+  potato: "Potatis",
+  peas: "Ärtor",
+  oleander: "Oleander",
+  peony: "Pion",
+  crocus: "Krokus",
+} as const;
+export type PlantIconId = keyof typeof plantIcons;

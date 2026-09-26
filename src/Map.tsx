@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PlantIcon } from "./PlantIcon";
+import { mapLayer, pathGeometry } from "./mapLayout";
+import { resizeBounds, resizeGeometry, type ResizeCorner } from "./resize";
 import {
   active,
   transform,
@@ -8,7 +11,16 @@ import {
   type Geometry,
 } from "./domain";
 export type Tool =
-  "select" | "pan" | "rectangle" | "ellipse" | "polygon" | "planting";
+  | "select"
+  | "move"
+  | "resize"
+  | "vertices"
+  | "pan"
+  | "rectangle"
+  | "ellipse"
+  | "polygon"
+  | "path"
+  | "planting";
 interface Props {
   garden: RecordData;
   records: RecordData[];
@@ -21,6 +33,7 @@ interface Props {
   plants: boolean;
   archived: boolean;
   placementDraft?: Geometry;
+  pathWidth?: number;
   onSelect: (id: string) => boolean;
   onCreate: (g: Geometry) => void;
   onMove: (r: RecordData, g: Geometry) => void;
@@ -40,6 +53,7 @@ export function GardenMap(p: Props) {
     client?: Point;
     scale?: number;
     vertex?: number;
+    resize?: ResizeCorner;
   }>();
   const point = (e: React.PointerEvent | React.MouseEvent): Point => {
     const s = svg.current!;
@@ -57,16 +71,18 @@ export function GardenMap(p: Props) {
   );
   const visible = useMemo(
     () =>
-      p.records.filter(
-        (r) =>
-          (p.archived || !r.archived) &&
-          r.gardenId === p.garden.id &&
-          active(r, p.date) &&
-          ((r.kind === "object" && p.structure) ||
-            (r.kind === "placement" &&
-              p.plants &&
-              (p.archived || !byId.get(r.plantingId!)?.archived))),
-      ),
+      p.records
+        .filter(
+          (r) =>
+            (p.archived || !r.archived) &&
+            r.gardenId === p.garden.id &&
+            active(r, p.date) &&
+            ((r.kind === "object" && p.structure) ||
+              (r.kind === "placement" &&
+                p.plants &&
+                (p.archived || !byId.get(r.plantingId!)?.archived))),
+        )
+        .sort((a, b) => mapLayer(a) - mapLayer(b)),
     [p.records, p.archived, p.garden.id, p.date, p.structure, p.plants, byId],
   );
   const cancel = () => {
@@ -89,23 +105,35 @@ export function GardenMap(p: Props) {
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
   }, []);
-  const shape = (g: Geometry) =>
+  const shape = (g: Geometry, color?: string) =>
     g.shape === "ellipse" ? (
       <ellipse
+        fill={color}
         cx={g.width / 2}
         cy={g.height / 2}
         rx={g.width / 2}
         ry={g.height / 2}
       />
     ) : g.shape === "polygon" ? (
-      <polygon points={g.points?.map((v) => `${v.x},${v.y}`).join(" ")} />
+      <polygon
+        fill={color}
+        points={g.points?.map((v) => `${v.x},${v.y}`).join(" ")}
+      />
     ) : (
-      <rect width={g.width} height={g.height} rx={0.06} />
+      <rect fill={color} width={g.width} height={g.height} rx={0.06} />
     );
   // Keep SVG nodes stable while panning; only the viewBox needs to change.
   const scene = useMemo(
     () =>
       visible.map((r) => {
+        const planting =
+          r.kind === "placement" ? byId.get(r.plantingId!) : undefined;
+        const icon = planting?.icon ?? planting?.snapshot?.icon;
+        const color =
+          r.color ??
+          planting?.color ??
+          planting?.snapshot?.color ??
+          (r.category === "Gång" ? "#d1b899" : undefined);
         const g =
           gesture?.record?.id === r.id && draft
             ? draft
@@ -113,13 +141,15 @@ export function GardenMap(p: Props) {
         return (
           <g
             key={r.id}
+            data-layer={mapLayer(r)}
             transform={`translate(${g.x} ${g.y}) rotate(${g.rotation})`}
             className={`${r.kind === "placement" ? "plant-shape" : "structure-shape"} ${p.selected === r.id ? "selected" : ""} ${r.archived ? "archived" : ""}`}
             onPointerDown={(e) => {
-              if (p.tool !== "select") return;
+              if (e.button !== 0 || (p.tool !== "select" && p.tool !== "move"))
+                return;
               e.stopPropagation();
               if (!p.onSelect(r.id)) return;
-              if (!r.locked) {
+              if (!r.locked && p.tool === "move") {
                 svg.current?.setPointerCapture(e.pointerId);
                 setGesture({ start: point(e), record: r, original: g });
               }
@@ -129,28 +159,89 @@ export function GardenMap(p: Props) {
               {r.name}
               {r.locked ? " (låst)" : ""}
             </title>
-            {shape(g)}
-            {r.kind === "placement" && byId.get(r.plantingId!)?.count === 1 && (
-              <circle
-                cx={g.width / 2}
-                cy={g.height / 2}
-                r={Math.min(g.width, g.height) * 0.08}
-                fill="#244c3a"
+            {shape(g, color)}
+            {r.kind === "placement" &&
+              (!icon || icon === "none") &&
+              byId.get(r.plantingId!)?.count === 1 && (
+                <circle
+                  cx={g.width / 2}
+                  cy={g.height / 2}
+                  r={Math.min(g.width, g.height) * 0.08}
+                  fill="#244c3a"
+                />
+              )}
+            {icon && icon !== "none" && (
+              <PlantIcon
+                icon={icon}
+                className="map-plant-icon"
+                pointerEvents="none"
+                x={g.width / 2 - Math.min(g.width, g.height) * 0.35}
+                y={g.height / 2 - Math.min(g.width, g.height) * 0.38}
+                width={Math.min(g.width, g.height) * 0.7}
+                height={Math.min(g.width, g.height) * 0.7}
               />
             )}
-            <text
-              x={g.width / 2}
-              y={g.height / 2}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize={Math.min(0.32, g.width / 6)}
-            >
-              {r.locked ? "🔒 " : ""}
-              {r.name}
-            </text>
+            {r.kind !== "placement" && (
+              <text
+                x={g.width / 2}
+                y={icon && icon !== "none" ? g.height * 0.9 : g.height / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={Math.min(0.32, g.width / 6)}
+              >
+                {r.locked ? "🔒 " : ""}
+                {r.name}
+              </text>
+            )}
             {p.selected === r.id &&
               !r.locked &&
-              p.tool === "select" &&
+              p.tool === "resize" &&
+              (["nw", "ne", "sw", "se"] as const).map((corner) => {
+                const min = resizeBounds(g);
+                return (
+                  <rect
+                    key={corner}
+                    role="button"
+                    aria-label={`Ändra storlek ${corner}`}
+                    className="resize-handle"
+                    x={
+                      min.x +
+                      (corner.includes("w") ? 0 : g.width) -
+                      view.w * 0.006
+                    }
+                    y={
+                      min.y +
+                      (corner.includes("n") ? 0 : g.height) -
+                      view.w * 0.006
+                    }
+                    width={view.w * 0.012}
+                    height={view.w * 0.012}
+                    fill="#fff"
+                    stroke="#bc791a"
+                    strokeWidth={view.w * 0.0015}
+                    style={{
+                      cursor:
+                        corner === "nw" || corner === "se"
+                          ? "nwse-resize"
+                          : "nesw-resize",
+                    }}
+                    onPointerDown={(e) => {
+                      if (e.button !== 0) return;
+                      e.stopPropagation();
+                      svg.current?.setPointerCapture(e.pointerId);
+                      setGesture({
+                        start: transform(point(e), g, true),
+                        record: r,
+                        original: g,
+                        resize: corner,
+                      });
+                    }}
+                  />
+                );
+              })}
+            {p.selected === r.id &&
+              !r.locked &&
+              p.tool === "vertices" &&
               g.shape === "polygon" &&
               g.points!.map((point, index) => (
                 <circle
@@ -215,6 +306,7 @@ export function GardenMap(p: Props) {
         ref={svg}
         role="application"
         aria-label="Trädgårdskarta"
+        data-tool={p.tool}
         tabIndex={0}
         viewBox={`${view.x} ${view.y} ${view.w} ${view.w * 0.7}`}
         onKeyDown={(e) => {
@@ -228,6 +320,7 @@ export function GardenMap(p: Props) {
         }
         onPointerDown={(e) => {
           if (e.button !== 0) return;
+          if (p.tool === "select" || p.tool === "move") return;
           svg.current?.setPointerCapture(e.pointerId);
           const pt = point(e);
           if (p.tool === "polygon") {
@@ -242,7 +335,7 @@ export function GardenMap(p: Props) {
             );
             return;
           }
-          if (p.tool === "select" || p.tool === "pan")
+          if (p.tool === "pan" || p.tool === "resize" || p.tool === "vertices")
             setGesture({
               start: pt,
               pan: view,
@@ -268,7 +361,17 @@ export function GardenMap(p: Props) {
             });
             return;
           }
-          if (gesture.vertex !== undefined && gesture.original) {
+          if (gesture.resize && gesture.original) {
+            const local = transform(pt, gesture.original, true);
+            setDraft(
+              resizeGeometry(
+                gesture.original,
+                gesture.resize,
+                { x: local.x - gesture.start.x, y: local.y - gesture.start.y },
+                p.snap,
+              ),
+            );
+          } else if (gesture.vertex !== undefined && gesture.original) {
             const local = transform(pt, gesture.original, true);
             const points = gesture.original.points!.map((p, i) =>
               i === gesture.vertex ? local : p,
@@ -289,6 +392,8 @@ export function GardenMap(p: Props) {
               x: gesture.original.x + dx,
               y: gesture.original.y + dy,
             });
+          else if (p.tool === "path")
+            setDraft(pathGeometry(gesture.start, pt, p.pathWidth || 0.8));
           else
             setDraft({
               x: Math.min(pt.x, gesture.start.x),
@@ -301,17 +406,25 @@ export function GardenMap(p: Props) {
         }}
         onPointerUp={() => {
           if (gesture && !gesture.pan) {
-            const g = draft || {
-              x: gesture.start.x,
-              y: gesture.start.y,
-              width: p.tool === "planting" ? 0.7 : 4,
-              height: p.tool === "planting" ? 0.7 : 1.2,
-              rotation: 0,
-              shape:
-                p.tool === "ellipse"
-                  ? ("ellipse" as const)
-                  : ("rectangle" as const),
-            };
+            const g =
+              draft ||
+              (p.tool === "path"
+                ? pathGeometry(
+                    gesture.start,
+                    { x: gesture.start.x + 4, y: gesture.start.y },
+                    p.pathWidth || 0.8,
+                  )
+                : {
+                    x: gesture.start.x,
+                    y: gesture.start.y,
+                    width: p.tool === "planting" ? 0.7 : 4,
+                    height: p.tool === "planting" ? 0.7 : 1.2,
+                    rotation: 0,
+                    shape:
+                      p.tool === "ellipse"
+                        ? ("ellipse" as const)
+                        : ("rectangle" as const),
+                  });
             if (gesture.record) {
               if (draft) {
                 const parent = p.records.find(
@@ -378,6 +491,38 @@ export function GardenMap(p: Props) {
           />
         )}
         {scene}
+        <g className="plant-labels" pointerEvents="none">
+          {visible
+            .filter((r) => r.kind === "placement")
+            .map((r) => {
+              const planting = byId.get(r.plantingId!);
+              const icon = planting?.icon ?? planting?.snapshot?.icon;
+              const g =
+                gesture?.record?.id === r.id && draft
+                  ? draft
+                  : worldGeometry(r, p.records);
+              const position = transform(
+                {
+                  x: g.width / 2,
+                  y: icon && icon !== "none" ? g.height : g.height / 2,
+                },
+                g,
+              );
+              return (
+                <text
+                  key={r.id}
+                  className="plant-name"
+                  x={position.x}
+                  y={position.y}
+                  dy={icon && icon !== "none" ? "1em" : ".35em"}
+                  textAnchor="middle"
+                  fontSize={view.w * 0.025}
+                >
+                  {planting?.name || r.name}
+                </text>
+              );
+            })}
+        </g>
         {p.placementDraft && !draft && (
           <g
             className="draft"
@@ -389,7 +534,10 @@ export function GardenMap(p: Props) {
           </g>
         )}
         {draft && !gesture?.record && (
-          <g className="draft" transform={`translate(${draft.x} ${draft.y})`}>
+          <g
+            className="draft"
+            transform={`translate(${draft.x} ${draft.y}) rotate(${draft.rotation})`}
+          >
             {shape(draft)}
           </g>
         )}
@@ -421,9 +569,19 @@ export function GardenMap(p: Props) {
         <span>
           {p.tool === "polygon"
             ? "Klicka för hörn · dubbelklicka för att sluta polygonen"
-            : p.tool === "select"
-              ? "Välj och dra objekt · dra tom yta för att panorera"
-              : "Klicka eller dra för att skapa"}{" "}
+            : p.tool === "path"
+              ? "Dra gångens mittlinje genom landet · släpp för att spara"
+              : p.tool === "resize"
+                ? "Dra ett hörn för att ändra storlek · släpp för att spara"
+                : p.tool === "vertices"
+                  ? "Dra ett polygonhörn · släpp för att spara"
+                  : p.tool === "pan"
+                    ? "Dra för att panorera"
+                    : p.tool === "select"
+                      ? "Klicka på ett objekt för att välja det"
+                      : p.tool === "move"
+                        ? "Dra ett objekt för att flytta det"
+                        : "Klicka eller dra för att skapa"}{" "}
           · Esc avbryter
         </span>
       </div>

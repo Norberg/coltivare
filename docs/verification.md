@@ -104,7 +104,33 @@ växt förväljs när Plantera öppnas. Två nya browserprov täcker dragning,
 Helkörningen efter rättningen gav 38 godkända Jest-tester och 27 godkända
 browserprov. Typkontroll och lint passerade också.
 
-## Avgränsningar
+## Utökning 2026-09-26: kartverktyg och utseende
+
+Välj och Flytta är separata lägen. Välj ändrar aldrig geometri vid dragning;
+Flytta sparar dragningen och stöder ångra. Storleksändring och polygonhörn
+har egna redigeringslägen. Färger och tio lokalt tecknade SVG-växtikoner
+kan väljas i egenskaperna. Nya planteringar använder växtens snapshot;
+befintliga planteringar kan få egna utseendevärden utan att ändra snapshot.
+
+Slutkörning: 46 Jest-tester i 8 sviter och 30 Playwright-tester godkända.
+Typkontroll, lint och produktionsbygge godkända. Browserproven täcker bland
+annat separata välj/flytta-lägen, färger, tio tillgängliga ikoner, bevarad
+snapshot, egen planteringsikon, omladdning och export/import. Ikonväljaren
+och kartverktygen är även visuellt granskade.
+
+## Utökning 2026-09-26: lager, gångar och växtnamn
+
+Kartan ritar struktur först, gångar därpå och växter överst. Växtnamn ligger
+i ett separat textlager och visas även för ikonförsedda växter. Gångverktyget
+skapar en redigerbar, roterad rektangel längs en dragen mittlinje med vald
+gångbredd; befintliga odlingsland ändras inte.
+
+48 Jest-tester och 31 browserprov godkända, liksom typkontroll, lint och
+produktionsbygge. Det nya UI-provet kontrollerar lagerordning oberoende av
+skapandeordning, ikon och synligt namn, diagonal gång med rätt bredd,
+oförändrat land, ångra/gör om och omladdning. Resultatet har granskats visuellt.
+
+## Drift och övriga avgränsningar
 
 Ingen publicering har utförts. Hostingens verkliga HTTPS/CSP-headers ska
 kontrolleras vid driftsättning. Firefox, Safari och fysiska mobiler ingick

@@ -20,6 +20,24 @@ const rect: Geometry = {
   rotation: 0,
   shape: "rectangle",
 };
+test("optional appearance metadata validates colors and known icons, preserving old records", () => {
+  const w = makeRecord("workspace", crypto.randomUUID());
+  w.workspaceId = w.id;
+  const p = makeRecord("plant", w.id, { name: "Lavendel" });
+  expect(() => validateRecords([w, p])).not.toThrow();
+  expect(() =>
+    validateRecords([w, { ...p, color: "#aabbcc", icon: "lavender" }]),
+  ).not.toThrow();
+  expect(() =>
+    validateRecords([w, { ...p, color: "url(https://example.com)" }]),
+  ).toThrow();
+  expect(() =>
+    validateRecords([w, { ...p, icon: "<svg>" as never }]),
+  ).toThrow();
+  expect(() =>
+    validateRecords([w, { ...p, icon: "toString" as never }]),
+  ).toThrow();
+});
 test("calendar dates preserve leap days, exclusive ends and month boundaries", () => {
   expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
   expect(addDays("2027-03-28", 1)).toBe("2027-03-29");
