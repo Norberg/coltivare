@@ -714,6 +714,14 @@ export function App({ repository }: { repository: Repository }) {
                         setDirty(true);
                       }
                     }}
+                    onMoveMany={async (changes) => {
+                      try {
+                        await save(changes, true);
+                        return true;
+                      } catch {
+                        return false;
+                      }
+                    }}
                     onCancel={() => setTool("select")}
                   />
                 ) : (

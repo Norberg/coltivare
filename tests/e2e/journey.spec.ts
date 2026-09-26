@@ -77,6 +77,146 @@ async function plant(
     .click();
   await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
 }
+test("Multi-select moves a group atomically, excludes locked objects and undoes together", async ({
+  page,
+}, testInfo) => {
+  await createGarden(page);
+  for (const [name, x] of [
+    ["A", "2"],
+    ["B", "6"],
+    ["C", "10"],
+  ]) {
+    await namedBed(page, name);
+    await page
+      .getByRole("button", { name: "Redigera egenskaper", exact: true })
+      .click();
+    await page.getByLabel("X (m)", { exact: true }).fill(x);
+    await page.getByLabel("Y (m)", { exact: true }).fill("4");
+    await page.getByLabel("Bredd (m)", { exact: true }).fill("2");
+    await page.getByLabel("Höjd (m)", { exact: true }).fill("2");
+    if (name === "C") await page.getByLabel("Lås objekt").check();
+    await page.getByRole("button", { name: "Spara", exact: true }).click();
+  }
+  await page.getByLabel("Snäppning", { exact: true }).uncheck();
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  await page.getByLabel("Snäpp mot odlingar", { exact: true }).uncheck();
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  const before = (await exported(page)).records.filter(
+    (r) => r.kind === "object",
+  );
+  await page.getByRole("button", { name: "Flytta", exact: true }).click();
+  await page.getByLabel("Markera många", { exact: true }).check();
+  const map = page.getByRole("application");
+  const positions = await map.evaluate((node) => {
+    const m = (node as SVGGraphicsElement).getScreenCTM()!;
+    return [
+      { x: 1, y: 3 },
+      { x: 13, y: 7 },
+    ].map((p) => ({ x: m.a * p.x + m.e, y: m.d * p.y + m.f }));
+  });
+  await page.mouse.move(positions[0].x, positions[0].y);
+  await page.mouse.down();
+  await page.mouse.move(positions[1].x, positions[1].y, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.locator(".structure-shape.selected")).toHaveCount(2);
+  await expect(page.getByText("2 markerade", { exact: true })).toBeVisible();
+  const a = page
+    .locator(".structure-shape")
+    .filter({ has: page.locator("title", { hasText: /^A$/ }) });
+  const box = (await a.locator("rect").first().boundingBox())!;
+  await page.evaluate(() => {
+    const original = IDBObjectStore.prototype.put;
+    let writes = 0;
+    IDBObjectStore.prototype.put = function (value: any, key?: IDBValidKey) {
+      if (this.name === "records" && ++writes === 2) {
+        IDBObjectStore.prototype.put = original;
+        throw new DOMException("Injected failure", "QuotaExceededError");
+      }
+      return key === undefined
+        ? original.call(this, value)
+        : original.call(this, value, key);
+    };
+  });
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    box.x + box.width / 2 + 30,
+    box.y + box.height / 2 + 20,
+    { steps: 6 },
+  );
+  await page.screenshot({ path: testInfo.outputPath("group-move.png") });
+  await page.mouse.up();
+  await expect(
+    page.getByRole("button", { name: "Försök spara gruppflytten igen" }),
+  ).toBeVisible();
+  expect(
+    (await exported(page)).records.filter((r) => r.kind === "object"),
+  ).toEqual(before);
+  await page
+    .getByRole("button", { name: "Försök spara gruppflytten igen" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Försök spara gruppflytten igen" }),
+  ).toHaveCount(0);
+  const after = (await exported(page)).records.filter(
+    (r) => r.kind === "object",
+  );
+  const delta = (name: string) => {
+    const old = before.find((r) => r.name === name)!.geometry!,
+      next = after.find((r) => r.name === name)!.geometry!;
+    return { x: next.x - old.x, y: next.y - old.y };
+  };
+  expect(delta("A").x).toBeGreaterThan(0);
+  expect(delta("A").x).toBeCloseTo(delta("B").x, 10);
+  expect(delta("A").y).toBeCloseTo(delta("B").y, 10);
+  expect(delta("C")).toEqual({ x: 0, y: 0 });
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  expect(
+    (await exported(page)).records
+      .filter((r) => r.kind === "object")
+      .map((r) => r.geometry),
+  ).toEqual(before.map((r) => r.geometry));
+  await page.getByRole("button", { name: "Gör om", exact: true }).click();
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  await page.reload();
+  expect(
+    (await exported(page)).records
+      .filter((r) => r.kind === "object")
+      .map((r) => r.geometry),
+  ).toEqual(after.map((r) => r.geometry));
+});
+test("Multi-select supports additive clicks, deselection and Escape during dragging", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await namedBed(page, "A");
+  await draw(page, "Rektangel", 330, 220);
+  const before = (await exported(page)).records.filter(
+    (r) => r.kind === "object",
+  );
+  await page.getByRole("button", { name: "Flytta", exact: true }).click();
+  await page.getByLabel("Markera många", { exact: true }).check();
+  const objects = page.locator(".structure-shape");
+  await objects.nth(0).click();
+  await objects.nth(1).click();
+  await expect(page.locator(".structure-shape.selected")).toHaveCount(2);
+  await objects.nth(0).click();
+  await expect(page.locator(".structure-shape.selected")).toHaveCount(1);
+  await objects.nth(0).click();
+  await expect(page.locator(".structure-shape.selected")).toHaveCount(2);
+  const b = (await objects.nth(0).locator("rect").first().boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + 30, b.y + b.height / 2 + 20, {
+    steps: 4,
+  });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  expect(
+    (await exported(page)).records.filter((r) => r.kind === "object"),
+  ).toEqual(before);
+});
 test("Move snaps 3.3 metre squares edge to edge independently of the grid", async ({
   page,
 }, testInfo) => {

@@ -86,6 +86,15 @@ separat verktyg där du drar ett objekt till en ny position; detta är en
 ritkorrigering, inte en daterad fysisk flytt. **Panorera** flyttar kartvyn.
 För polygoners enskilda hörn använder du **Redigera hörn** i egenskapspanelen.
 
+I **Flytta → Markera många** väljer du flera objekt genom att klicka på dem,
+eller genom att dra en markeringsruta runt dem på tom kartmark. Klicka igen
+för att avmarkera. Dra sedan ett redan markerat objekt för att flytta hela
+gruppen med bibehållna inbördes avstånd. Låsta objekt undantas. Bundna
+plantor följer sin bädd utan dubbel förflyttning, även om båda är markerade.
+Gruppens yttergränser används för snäppning. Flytten sparas atomiskt och
+Ångra/Gör om gäller hela gruppen. Vid sparfel görs ingen deländring och en
+knapp låter dig försöka spara samma gruppflytt igen.
+
 I **Flytta** kan **Snäpp mot odlingar** koppla ihop figurernas ytterkanter
 exakt, även vid mått som 3,3 m eller 33 cm. Kantsnäppningen har företräde
 framför 10 cm-rutnätet när du är nära en annan synlig figur. Streckade

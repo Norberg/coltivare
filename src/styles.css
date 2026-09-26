@@ -325,6 +325,18 @@ small {
   overflow: hidden;
   position: relative;
 }
+.multi-move-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f4f6ee;
+  flex-shrink: 0;
+}
+.multi-move-tools small {
+  flex-basis: 100%;
+}
 .map-shell > svg {
   display: block;
   user-select: none;

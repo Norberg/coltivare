@@ -144,6 +144,20 @@ produktionsbygge. Enhetsprov omfattar även 33 cm-kvadrater. UI-provet flyttar
 koordinater, hjälplinjer, ångra/gör om och beständiga inställningar.
 Resultatet har granskats visuellt.
 
+## Utökning: Markera många och atomisk gruppflytt
+
+Flytta-läget har flerval med klick och markeringsruta. Alla markerade,
+olåsta objekt flyttas med samma vektor och gruppens yttergränser används
+för snäppning. Bundna placeringar dubbelöversätts inte när deras bädd ingår.
+Gruppflytten är ett enda transaktions-/ångerkommando. Sparfel behåller ett
+återförsöksunderlag och skriver inga deländringar.
+
+78 Jest-tester och 36 browserprov godkända; typkontroll, lint och bygge
+godkända. Testerna täcker flerval, avmarkering, markeringsruta, låsta objekt,
+Escape, samma förflyttning för flera objekt, roterad bindning, atomisk
+rollback vid injicerat fel efter första skrivningen, återförsök, ångra/gör
+om och omladdning. Gruppflytten har också granskats visuellt.
+
 ## Drift och övriga avgränsningar
 
 Ingen publicering har utförts. Hostingens verkliga HTTPS/CSP-headers ska

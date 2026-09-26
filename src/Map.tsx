@@ -3,6 +3,7 @@ import { PlantIcon } from "./PlantIcon";
 import { mapLayer, pathGeometry } from "./mapLayout";
 import { bounds } from "./geometry";
 import { snapMove, type SnapGuide } from "./snapping";
+import { groupBounds, translateGroup } from "./groupMove";
 import { resizeBounds, resizeGeometry, type ResizeCorner } from "./resize";
 import {
   active,
@@ -11,6 +12,7 @@ import {
   type Point,
   type RecordData,
   type Geometry,
+  type Change,
 } from "./domain";
 export type Tool =
   | "select"
@@ -40,6 +42,7 @@ interface Props {
   onSelect: (id: string) => boolean;
   onCreate: (g: Geometry) => void;
   onMove: (r: RecordData, g: Geometry) => void;
+  onMoveMany: (changes: Change[]) => Promise<boolean>;
   onCancel: () => void;
 }
 export function GardenMap(p: Props) {
@@ -49,6 +52,10 @@ export function GardenMap(p: Props) {
   const [draft, setDraft] = useState<Geometry>();
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [polygon, setPolygon] = useState<Point[]>([]);
+  const [multi, setMulti] = useState(false);
+  const [marked, setMarked] = useState<string[]>([]);
+  const [savingGroup, setSavingGroup] = useState(false);
+  const [failedGroup, setFailedGroup] = useState<Change[]>();
   const [gesture, setGesture] = useState<{
     start: Point;
     record?: RecordData;
@@ -58,7 +65,14 @@ export function GardenMap(p: Props) {
     scale?: number;
     vertex?: number;
     resize?: ResizeCorner;
+    group?: RecordData[];
+    marquee?: boolean;
   }>();
+  useEffect(() => {
+    setMulti(false);
+    setMarked([]);
+    setFailedGroup(undefined);
+  }, [p.tool, p.date]);
   const point = (
     e: React.PointerEvent | React.MouseEvent,
     grid = p.snap,
@@ -99,12 +113,38 @@ export function GardenMap(p: Props) {
             .filter(
               (r) =>
                 r.id !== gesture?.record?.id &&
-                r.objectId !== gesture?.record?.id,
+                r.objectId !== gesture?.record?.id &&
+                !gesture?.group?.some(
+                  (member) => member.id === r.id || member.id === r.objectId,
+                ),
             )
             .map((r) => bounds(worldGeometry(r, p.records)))
         : [],
-    [visible, p.edgeSnap, p.records, gesture?.record?.id],
+    [visible, p.edgeSnap, p.records, gesture?.record?.id, gesture?.group],
   );
+  const groupDelta =
+    gesture?.group && draft && gesture.original
+      ? { x: draft.x - gesture.original.x, y: draft.y - gesture.original.y }
+      : undefined;
+  const preview = (r: RecordData) => {
+    const g = worldGeometry(r, p.records);
+    if (
+      groupDelta &&
+      gesture?.group?.some(
+        (member) => member.id === r.id || member.id === r.objectId,
+      )
+    )
+      return { ...g, x: g.x + groupDelta.x, y: g.y + groupDelta.y };
+    return gesture?.record?.id === r.id && draft && !gesture.group ? draft : g;
+  };
+  async function saveGroup(changes: Change[]) {
+    setSavingGroup(true);
+    try {
+      setFailedGroup((await p.onMoveMany(changes)) ? undefined : changes);
+    } finally {
+      setSavingGroup(false);
+    }
+  }
   const cancel = () => {
     setSnapGuides([]);
     setDraft(undefined);
@@ -156,21 +196,38 @@ export function GardenMap(p: Props) {
           planting?.color ??
           planting?.snapshot?.color ??
           (r.category === "Gång" ? "#d1b899" : undefined);
-        const g =
-          gesture?.record?.id === r.id && draft
-            ? draft
-            : worldGeometry(r, p.records);
+        const g = preview(r);
         return (
           <g
             key={r.id}
             data-layer={mapLayer(r)}
             transform={`translate(${g.x} ${g.y}) rotate(${g.rotation})`}
-            className={`${r.kind === "placement" ? "plant-shape" : "structure-shape"} ${p.selected === r.id ? "selected" : ""} ${r.archived ? "archived" : ""}`}
+            className={`${r.kind === "placement" ? "plant-shape" : "structure-shape"} ${(p.tool === "move" && multi ? marked.includes(r.id) : p.selected === r.id) ? "selected" : ""} ${r.archived ? "archived" : ""}`}
             onPointerDown={(e) => {
               if (e.button !== 0 || (p.tool !== "select" && p.tool !== "move"))
                 return;
               e.stopPropagation();
+              if (savingGroup) return;
               if (!p.onSelect(r.id)) return;
+              if (p.tool === "move" && multi) {
+                if (r.locked) return;
+                setFailedGroup(undefined);
+                if (!marked.includes(r.id)) {
+                  setMarked((ids) => [...ids, r.id]);
+                  return;
+                }
+                const group = visible.filter(
+                  (item) => marked.includes(item.id) && !item.locked,
+                );
+                svg.current?.setPointerCapture(e.pointerId);
+                setGesture({
+                  start: point(e, false),
+                  record: r,
+                  original: groupBounds(group, p.records),
+                  group,
+                });
+                return;
+              }
               if (!r.locked && p.tool === "move") {
                 svg.current?.setPointerCapture(e.pointerId);
                 setGesture({ start: point(e, false), record: r, original: g });
@@ -299,6 +356,10 @@ export function GardenMap(p: Props) {
       p.records,
       draft,
       gesture?.record?.id,
+      gesture?.group,
+      multi,
+      marked,
+      savingGroup,
       view.w,
       p.snap,
       byId,
@@ -306,6 +367,55 @@ export function GardenMap(p: Props) {
   );
   return (
     <div className="map-shell">
+      {p.tool === "move" && (
+        <div className="multi-move-tools">
+          <label>
+            <input
+              type="checkbox"
+              checked={multi}
+              disabled={savingGroup}
+              onChange={(e) => {
+                setMulti(e.target.checked);
+                setMarked([]);
+                setFailedGroup(undefined);
+              }}
+            />{" "}
+            Markera många
+          </label>
+          {multi && (
+            <>
+              <span>
+                {
+                  visible.filter((r) => marked.includes(r.id) && !r.locked)
+                    .length
+                }{" "}
+                markerade
+              </span>
+              <button disabled={savingGroup} onClick={() => setMarked([])}>
+                Avmarkera alla
+              </button>
+              <small>
+                Klicka på objekt eller dra en markeringsruta på tom yta. Dra ett
+                markerat objekt för att flytta gruppen. Låsta objekt undantas.
+              </small>
+            </>
+          )}
+          {failedGroup && (
+            <span role="alert">
+              Gruppflytten sparades inte.{" "}
+              <button
+                disabled={savingGroup}
+                onClick={() => void saveGroup(failedGroup)}
+              >
+                Försök spara gruppflytten igen
+              </button>
+              <button onClick={() => setFailedGroup(undefined)}>
+                Avbryt gruppflytten
+              </button>
+            </span>
+          )}
+        </div>
+      )}
       <div className="map-controls">
         <button
           onClick={() => setView((v) => ({ ...v, w: v.w * 0.8 }))}
@@ -345,6 +455,12 @@ export function GardenMap(p: Props) {
         }
         onPointerDown={(e) => {
           if (e.button !== 0) return;
+          if (savingGroup) return;
+          if (p.tool === "move" && multi) {
+            svg.current?.setPointerCapture(e.pointerId);
+            setGesture({ start: point(e, false), marquee: true });
+            return;
+          }
           if (p.tool === "select" || p.tool === "move") return;
           svg.current?.setPointerCapture(e.pointerId);
           const pt = point(e);
@@ -412,6 +528,11 @@ export function GardenMap(p: Props) {
                 Math.min(...points.map((p) => p.y)),
             });
           } else if (gesture.record && gesture.original) {
+            if (
+              gesture.group &&
+              Math.hypot(dx, dy) * Math.abs(svg.current!.getScreenCTM()!.a) < 3
+            )
+              return;
             const raw = {
               ...gesture.original,
               x: gesture.original.x + dx,
@@ -439,6 +560,41 @@ export function GardenMap(p: Props) {
             });
         }}
         onPointerUp={() => {
+          if (gesture?.marquee) {
+            const box = draft ? bounds(draft) : undefined;
+            setMarked(
+              box
+                ? visible
+                    .filter((r) => {
+                      if (r.locked) return false;
+                      const b = bounds(worldGeometry(r, p.records));
+                      return (
+                        b.minX >= box.minX &&
+                        b.maxX <= box.maxX &&
+                        b.minY >= box.minY &&
+                        b.maxY <= box.maxY
+                      );
+                    })
+                    .map((r) => r.id)
+                : [],
+            );
+            setFailedGroup(undefined);
+            setGesture(undefined);
+            setDraft(undefined);
+            return;
+          }
+          if (gesture?.group) {
+            if (groupDelta)
+              void saveGroup(
+                translateGroup(gesture.group, p.records, groupDelta),
+              );
+            else
+              setMarked((ids) => ids.filter((id) => id !== gesture.record!.id));
+            setGesture(undefined);
+            setDraft(undefined);
+            setSnapGuides([]);
+            return;
+          }
           if (gesture && !gesture.pan) {
             const g =
               draft ||
@@ -552,10 +708,7 @@ export function GardenMap(p: Props) {
             .map((r) => {
               const planting = byId.get(r.plantingId!);
               const icon = planting?.icon ?? planting?.snapshot?.icon;
-              const g =
-                gesture?.record?.id === r.id && draft
-                  ? draft
-                  : worldGeometry(r, p.records);
+              const g = preview(r);
               const position = transform(
                 {
                   x: g.width / 2,
