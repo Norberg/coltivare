@@ -213,6 +213,17 @@ kontrollerar flera ikoner per art och oförändrat mönster efter omladdning.
 86 enhetstester och 39 webbläsartester godkända, liksom typkontroll, lint
 och produktionsbygge. Spridningen har också granskats visuellt.
 
+## Utökning: fyra nya växtikoner
+
+Lobelia, Ringblomma, Aubrietia och Borstnejlika har egna lokala SVG-illustrationer
+i den befintliga stilen. Väljaren innehåller nu 23 ikoner. De nya ID:na täcks
+av ikonernas parameteriserade renderings- och valideringstester. Ett nytt
+webbläsartest väljer alla fyra, skapar en blandad plantering, kontrollerar
+exporterade ögonblicksbilder och laddar om kartan.
+90 enhetstester godkända. De 39 befintliga webbläsartesterna går igenom;
+det nya ikonprovet går igenom efter att testet rättats att invänta sparningen.
+Typkontroll, lint och produktionsbygge godkända. Ikonväljaren är visuellt granskad.
+
 ## Drift och övriga avgränsningar
 
 Ingen publicering har utförts. Hostingens verkliga HTTPS/CSP-headers ska

@@ -18,5 +18,10 @@ export const plantIcons = {
   oleander: "Oleander",
   peony: "Pion",
   crocus: "Krokus",
+  lobelia: "Lobelia",
+  calendula: "Ringblomma",
+  // Kept for backwards-compatible saved icon IDs; the illustration is Aubrietia.
+  blueFescue: "Aubrietia",
+  sweetWilliam: "Borstnejlika",
 } as const;
 export type PlantIconId = keyof typeof plantIcons;

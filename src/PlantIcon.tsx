@@ -3,6 +3,133 @@ import { plantIcons, type PlantIconId } from "./plantAppearance";
 
 // Original, local vector illustrations. No fonts, external images or user SVG.
 const drawings: Record<PlantIconId, React.ReactNode> = {
+  lobelia: (
+    <>
+      <path d="M31 59Q30 42 17 23M31 53Q43 41 46 24M31 48L33 16" />
+      <path
+        fill="#78a46a"
+        d="M28 52Q11 55 10 43Q22 40 28 52ZM34 51Q49 40 55 46Q50 57 34 51Z"
+      />
+      {[
+        [16, 23],
+        [34, 15],
+        [47, 30],
+      ].map(([x, y]) => (
+        <g
+          key={x}
+          transform={`translate(${x} ${y})`}
+          fill="#728add"
+          stroke="#4c64ae"
+          strokeWidth="1.5"
+        >
+          <path d="M0 0C-10 -2 -11 -12 -5 -11Q0 -10 0 -3Q3 -14 8 -9Q12 -4 3 0C16 0 13 10 6 9C5 17 -5 16 -6 9C-15 12 -17 1 -6 0Z" />
+          <path stroke="#f8f2d5" strokeWidth="2.5" d="M-4 3L0 1L4 3M0 1L0 6" />
+        </g>
+      ))}
+    </>
+  ),
+  calendula: (
+    <>
+      <path d="M32 60L32 31" />
+      <path
+        fill="#83a15b"
+        d="M31 53Q11 52 13 40Q28 39 31 53ZM33 46Q39 33 51 38Q50 49 33 46Z"
+      />
+      <g
+        transform="translate(32 24)"
+        fill="#efa940"
+        stroke="#cc7929"
+        strokeWidth="1.3"
+      >
+        {Array.from({ length: 12 }, (_, i) => (
+          <ellipse
+            key={i}
+            cx="0"
+            cy="-10"
+            rx="3.8"
+            ry="10"
+            transform={`rotate(${i * 30})`}
+          />
+        ))}
+        <circle r="8" fill="#e9912e" />
+        <circle r="4.5" fill="#a76730" stroke="none" />
+        <path
+          stroke="#f7cb64"
+          strokeWidth="1.5"
+          d="M-3 -2L-2 -2M2 -3L3 -2M-1 2L0 3M3 1L4 2"
+        />
+      </g>
+    </>
+  ),
+  blueFescue: (
+    <>
+      <path stroke="#617f51" d="M32 60L32 36M32 51L18 43M32 48L47 40" />
+      <path
+        fill="#719b5b"
+        d="M31 54Q13 56 10 46Q22 40 31 49ZM33 52Q43 38 55 43Q50 54 33 52Z"
+      />
+      {[
+        [19, 29],
+        [31, 19],
+        [44, 29],
+      ].map(([x, y]) => (
+        <g
+          key={x}
+          transform={`translate(${x} ${y})`}
+          fill="#9d85d3"
+          stroke="#735ea9"
+          strokeWidth="1.2"
+        >
+          {[0, 60, 120, 180, 240, 300].map((angle) => (
+            <ellipse
+              key={angle}
+              cx="0"
+              cy="-6"
+              rx="3.5"
+              ry="7"
+              transform={`rotate(${angle})`}
+            />
+          ))}
+          <circle r="3.5" fill="#f0c95a" stroke="none" />
+        </g>
+      ))}
+    </>
+  ),
+  sweetWilliam: (
+    <>
+      <path d="M32 60L32 26M32 40L19 24M32 37L47 23" />
+      <path
+        fill="#6a955e"
+        d="M30 51Q14 50 10 38Q24 39 30 51ZM34 48Q42 35 54 37Q47 49 34 48Z"
+      />
+      {[
+        [20, 16],
+        [33, 12],
+        [45, 17],
+        [15, 28],
+        [29, 26],
+        [43, 29],
+      ].map(([x, y], i) => (
+        <g
+          key={x}
+          transform={`translate(${x} ${y})`}
+          fill={i % 2 ? "#e58ca6" : "#c96086"}
+          stroke="#a54d70"
+          strokeWidth="1.2"
+        >
+          {[0, 72, 144, 216, 288].map((angle) => (
+            <path
+              key={angle}
+              transform={`rotate(${angle})`}
+              d="M0 0L-4 -4L-5 -8L-2 -7L0 -10L2 -7L5 -8L4 -4Z"
+            />
+          ))}
+          <circle r="3" fill="#fbebd8" stroke="none" />
+          <circle r="1.4" fill="#9c476a" stroke="none" />
+        </g>
+      ))}
+    </>
+  ),
   chard: (
     <>
       <path

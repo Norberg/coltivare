@@ -45,6 +45,49 @@ async function draw(page: Page, tool: string, x = 200, y = 150) {
     .getByRole("application", { name: "Trädgårdskarta" })
     .click({ position: { x, y } });
 }
+test("New flower icons can be selected, mixed and restored", async ({
+  page,
+}, testInfo) => {
+  await createGarden(page);
+  const names = ["Lobelia", "Ringblomma", "Aubrietia", "Borstnejlika"];
+  for (const name of names) await createPlant(page, name, name);
+  await page.getByRole("button", { name: "Plantera", exact: true }).click();
+  await page.getByLabel("Växt att plantera").selectOption("");
+  await page.getByLabel("Blandad plantering", { exact: true }).check();
+  await page.getByLabel("Blandningens namn").fill("Sommarblandning");
+  for (const name of names)
+    await page.getByRole("checkbox", { name, exact: true }).check();
+  const box = await page.getByRole("application").boundingBox();
+  await page.mouse.move(box!.x + 100, box!.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + 400, box!.y + 240);
+  await page.mouse.up();
+  await page.getByLabel("Visas från").fill("2027-04-01");
+  await page
+    .getByRole("button", { name: "Spara plantering", exact: true })
+    .click();
+  await expect(page.locator(".plant-name")).toContainText("Sommarblandning");
+  for (const name of names)
+    expect(
+      await page.locator(`.mixture-icons svg[aria-label="${name}"]`).count(),
+    ).toBeGreaterThan(1);
+  const snapshot = await exported(page);
+  const planting = snapshot.records.find((r) => r.kind === "planting")!;
+  expect(
+    [planting.snapshot!, ...planting.additionalPlants!].map((p) => p.icon),
+  ).toEqual(["lobelia", "calendula", "blueFescue", "sweetWilliam"]);
+  await page.reload();
+  await expect(page.locator(".plant-name")).toContainText("Sommarblandning");
+  for (const name of names)
+    expect(
+      await page.locator(`.mixture-icons svg[aria-label="${name}"]`).count(),
+    ).toBeGreaterThan(1);
+  await page.screenshot({
+    path: testInfo.outputPath("new-flower-icons.png"),
+    fullPage: true,
+  });
+});
+
 test("A mix can be planted using only checked species, without a dropdown plant", async ({
   page,
 }) => {
@@ -617,7 +660,7 @@ test("Figure colors and plant icons persist with snapshots and portable export",
   );
   await page.getByRole("button", { name: "Skapa egen växt" }).click();
   await page.getByLabel("Namn", { exact: true }).fill("Lavendel");
-  await expect(page.getByRole("button", { name: /^Ikon: / })).toHaveCount(19);
+  await expect(page.getByRole("button", { name: /^Ikon: / })).toHaveCount(23);
   await page
     .getByRole("button", { name: "Ikon: Lavendel", exact: true })
     .click();
