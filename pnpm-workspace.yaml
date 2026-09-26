@@ -1,0 +1,3 @@
+# Wait 48 hours (2880 minutes) before resolving newly published dependencies.
+# https://pnpm.io/10.x/settings#minimumreleaseage
+minimumReleaseAge: 2880
