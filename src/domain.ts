@@ -28,7 +28,6 @@ export interface RecordData {
   revision: number;
   createdAt: string;
   updatedAt: string;
-  archived: boolean;
   name: string;
   notes: string;
   gardenId?: string;
@@ -63,7 +62,7 @@ export interface RecordData {
 }
 export interface Change {
   before?: RecordData;
-  after: RecordData;
+  after?: RecordData;
 }
 export function plantingPlants(record: RecordData | undefined): RecordData[] {
   return record?.snapshot
@@ -123,7 +122,6 @@ export function makeRecord(
     kind,
     workspaceId,
     revision: 0,
-    archived: false,
     name: "",
     notes: "",
     ...values,
@@ -339,7 +337,6 @@ export function validateRecords(records: RecordData[]) {
       ].includes(r.kind) ||
       typeof r.name !== "string" ||
       typeof r.notes !== "string" ||
-      typeof r.archived !== "boolean" ||
       !Number.isInteger(r.revision) ||
       r.revision < 0 ||
       !Number.isFinite(Date.parse(r.createdAt)) ||
@@ -355,7 +352,6 @@ export function validateRecords(records: RecordData[]) {
       "revision",
       "createdAt",
       "updatedAt",
-      "archived",
       "name",
       "notes",
       "gardenId",
@@ -525,9 +521,7 @@ export function validateRecords(records: RecordData[]) {
       }
     }
   }
-  const placements = records.filter(
-    (r) => r.kind === "placement" && !r.archived,
-  );
+  const placements = records.filter((r) => r.kind === "placement");
   const groups = new Map<string, RecordData[]>();
   for (const p of placements) {
     const same = groups.get(p.plantingId!) || [];
@@ -538,18 +532,47 @@ export function validateRecords(records: RecordData[]) {
   }
 }
 export function parseSnapshot(value: unknown): Snapshot {
-  const s = value as Snapshot;
+  const input = value as Snapshot;
   if (
-    !s ||
-    s.schemaVersion !== 1 ||
-    !["garden", "workspace"].includes(s.exportKind) ||
-    !Array.isArray(s.records) ||
-    !Number.isFinite(Date.parse(s.exportedAt))
+    !input ||
+    input.schemaVersion !== 1 ||
+    !["garden", "workspace"].includes(input.exportKind) ||
+    !Array.isArray(input.records) ||
+    input.records.some((record) => !record || typeof record !== "object") ||
+    !Number.isFinite(Date.parse(input.exportedAt))
   )
     throw new DomainError(
       "validation",
       "Ogiltigt exportformat eller okänd formatversion.",
     );
+  if (
+    input.histories !== undefined &&
+    (input.exportKind !== "workspace" ||
+      !Array.isArray(input.histories) ||
+      input.histories.some(
+        (history) =>
+          !history ||
+          !Array.isArray(history.undo) ||
+          !Array.isArray(history.redo) ||
+          [...history.undo, ...history.redo].some(
+            (command) =>
+              !Array.isArray(command) ||
+              command.some(
+                (change) =>
+                  !change ||
+                  typeof change !== "object" ||
+                  (!change.before && !change.after),
+              ),
+          ),
+      ))
+  )
+    throw new DomainError("validation", "Ogiltig ångerhistorik.");
+  const cleaned = purgeArchivedState(input.records, input.histories);
+  const s: Snapshot = {
+    ...input,
+    records: cleaned.records,
+    ...(input.histories === undefined ? {} : { histories: cleaned.histories }),
+  };
   if (
     s.records.filter((r) => r.kind === "workspace").length !== 1 ||
     (s.exportKind === "garden" &&
@@ -565,9 +588,13 @@ export function parseSnapshot(value: unknown): Snapshot {
       throw new DomainError("validation", "Ogiltig ångerhistorik.");
     const records = new Map(s.records.map((r) => [r.id, r]));
     for (const h of s.histories) {
+      const historicalGarden = [...h.undo, ...h.redo]
+        .flat()
+        .flatMap((change) => [change.before, change.after])
+        .find((record) => record?.id === h.id && record.kind === "garden");
       if (
         !h ||
-        records.get(h.id)?.kind !== "garden" ||
+        (records.get(h.id)?.kind !== "garden" && !historicalGarden) ||
         !Array.isArray(h.undo) ||
         !Array.isArray(h.redo)
       )
@@ -576,15 +603,19 @@ export function parseSnapshot(value: unknown): Snapshot {
         if (!Array.isArray(command))
           throw new DomainError("validation", "Ogiltigt historikkommando.");
         for (const c of command) {
-          const current = records.get(c?.after?.id);
+          const changed = c?.after || c?.before;
+          const current = changed ? records.get(changed.id) : undefined;
           if (
-            !current ||
-            current.kind !== c.after.kind ||
-            (c.before && c.before.id !== c.after.id) ||
-            c.after.workspaceId !== current.workspaceId ||
-            (current.id !== h.id &&
-              current.gardenId !== h.id &&
-              current.kind !== "plant")
+            !changed ||
+            (c.before &&
+              c.after &&
+              (c.before.id !== c.after.id ||
+                c.before.kind !== c.after.kind ||
+                c.before.workspaceId !== c.after.workspaceId)) ||
+            (current && current.kind !== changed.kind) ||
+            (changed.id !== h.id &&
+              changed.gardenId !== h.id &&
+              changed.kind !== "plant")
           )
             throw new DomainError(
               "validation",
@@ -595,4 +626,103 @@ export function parseSnapshot(value: unknown): Snapshot {
     }
   }
   return s;
+}
+
+type LegacyRecord = RecordData & { archived?: boolean };
+
+function stripArchived(record: LegacyRecord): RecordData {
+  const result = { ...record } as LegacyRecord;
+  delete result.archived;
+  if (result.snapshot)
+    result.snapshot = stripArchived(result.snapshot as LegacyRecord);
+  if (result.additionalPlants)
+    result.additionalPlants = result.additionalPlants.map((plant) =>
+      stripArchived(plant as LegacyRecord),
+    );
+  return result;
+}
+
+/** Removes legacy archived data without retaining archive tombstones. */
+export function purgeArchivedState(
+  inputRecords: RecordData[],
+  inputHistories: History[] = [],
+): { records: RecordData[]; histories: History[]; removedIds: Set<string> } {
+  const legacyRecords = inputRecords as LegacyRecord[];
+  const removedIds = new Set(
+    legacyRecords
+      .filter((record) => record.kind !== "workspace" && record.archived === true)
+      .map((record) => record.id),
+  );
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const record of legacyRecords) {
+      if (removedIds.has(record.id)) continue;
+      const remove =
+        (!!record.gardenId && removedIds.has(record.gardenId)) ||
+        (record.kind === "planting" &&
+          (!!record.plantId && removedIds.has(record.plantId) ||
+            record.additionalPlants?.some((plant) =>
+              removedIds.has(plant.id),
+            ))) ||
+        (record.kind === "placement" &&
+          !!record.plantingId &&
+          removedIds.has(record.plantingId)) ||
+        (record.kind === "event" &&
+          !!record.targetId &&
+          removedIds.has(record.targetId));
+      if (remove) {
+        removedIds.add(record.id);
+        changed = true;
+      }
+    }
+  }
+  const records = legacyRecords
+    .filter((record) => !removedIds.has(record.id))
+    .map((record) => {
+      const clean = stripArchived(record);
+      if (clean.objectId && removedIds.has(clean.objectId)) {
+        if (clean.geometry)
+          clean.geometry = worldGeometry(clean, inputRecords);
+        delete clean.objectId;
+      }
+      if (clean.lastGardenId && removedIds.has(clean.lastGardenId))
+        delete clean.lastGardenId;
+      return clean;
+    });
+  const histories = inputHistories
+    .filter((history) => !removedIds.has(history.id))
+    .map((history) => {
+      const cleanStack = (stack: Change[][]) =>
+        stack
+          .map((command) =>
+            command
+              .filter((change) => {
+                const before = change.before as LegacyRecord | undefined;
+                const after = change.after as LegacyRecord | undefined;
+                const id = after?.id || before?.id;
+                return (
+                  !!id &&
+                  !removedIds.has(id) &&
+                  before?.archived !== true &&
+                  after?.archived !== true
+                );
+              })
+              .map((change) => ({
+                ...(change.before
+                  ? { before: stripArchived(change.before as LegacyRecord) }
+                  : {}),
+                ...(change.after
+                  ? { after: stripArchived(change.after as LegacyRecord) }
+                  : {}),
+              })),
+          )
+          .filter((command) => command.length > 0);
+      return {
+        id: history.id,
+        undo: cleanStack(history.undo),
+        redo: cleanStack(history.redo),
+      };
+    });
+  return { records, histories, removedIds };
 }

@@ -8,10 +8,11 @@ importerar ingen React-, IndexedDB- eller molnklient. UI:s import av
 repository-typen tas bort av TypeScript vid bygge.
 
 `list`, `commit`, `history`, `travel`, `export`, `import`, `subscribe` och
-`close` är kontraktet. `commit` tar en lista av tidigare och nya poster:
-tidigare `revision` är villkoret för uppdatering. Revision 0 betyder en ny
-post. Fel har koderna `validation`, `conflict`, `quota`, `unavailable` och
-`version`. Ingen motortransaktion exponeras i UI/domän.
+`close` är kontraktet. `commit` tar en lista av tidigare och/eller nya poster:
+tidigare `revision` är villkoret för uppdatering, saknad tidigare post betyder
+skapande och saknad ny post betyder historikförd borttagning. Revision 0
+betyder en ny post. Fel har koderna `validation`, `conflict`, `quota`,
+`unavailable` och `version`. Ingen motortransaktion exponeras i UI/domän.
 
 `tests/contract.test.ts` kör samma kontrakt mot IndexedDB-adaptern och en
 fristående minnesadapter: atomisk flytt, rollback, revisionskonflikt,
@@ -53,7 +54,8 @@ utseendet, även i snapshots; själva SVG-teckningarna är statisk appkod.
 - `travel`: ångra/gör om läser och skriver både domänposter och
   kommandostackar i en transaktion. Revisioner ökar även vid ånger.
   Innehåll som ändrats utanför kommandot får inte tyst skrivas över.
-  Ångrat skapande representeras av arkivering, aldrig borttagen historik.
+  Ångrat skapande tar bort posten i samma transaktion. Gör om återställer den
+  från kommandot; historiken försvinner inte med posten.
 - `export`: en readonly-transaktion läser poster och historik för en
   konsistent ögonblicksbild.
 - `import`: filen valideras innan skrivning. Referenser i trädgårdsimport
@@ -75,6 +77,12 @@ Stabilt databasnamn: `odlingskartan`. Intern version: **2**.
 1. Version 1 skapar `records` och index för typ, trädgård och arbetsyta.
 2. Version 2 lägger till `history` och indexet `plantingId`. Befintliga
    poster behöver inte skrivas om.
+
+Vid första läsning rensas äldre arkivdata i en gemensam transaktion för
+`records` och `history`. Arkiverade poster och beroenden som inte längre kan
+vara giltiga tas bort, bundna placeringar görs fria med bevarad världsgeometri,
+arkiveringskommandon tas bort och övriga historikkommandon behålls utan det
+gamla fältet.
 
 Uppgradering sker i IndexedDB:s upgrade-transaktion. Ingen automatisk
 `deleteDatabase` finns. En blockerande äldre flik ger ett fel med instruktion

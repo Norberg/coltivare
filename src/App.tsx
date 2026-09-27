@@ -32,6 +32,7 @@ import { Field, RecordForm } from "./Forms";
 import { formatMeters } from "./format";
 import { PlantIcon } from "./PlantIcon";
 import { MixturePicker } from "./MixturePicker";
+import { deleteRecordChanges } from "./deleteRecord";
 
 export function App({ repository }: { repository: Repository }) {
   const cache = useQueryClient();
@@ -63,7 +64,6 @@ export function App({ repository }: { repository: Repository }) {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [archived, setArchived] = useState(false);
   const [grid, setGrid] = useState(true),
     [snap, setSnap] = useState(true),
     [structure, setStructure] = useState(true),
@@ -77,7 +77,7 @@ export function App({ repository }: { repository: Repository }) {
     .map((id) => records.find((record) => record.id === id))
     .filter(
       (record): record is RecordData =>
-        !!record && record.kind === "plant" && !record.archived,
+        !!record && record.kind === "plant",
     );
   const [edgeSnap, setEdgeSnap] = useState(true);
   const [pathWidth, setPathWidth] = useState(0.8);
@@ -95,9 +95,9 @@ export function App({ repository }: { repository: Repository }) {
     records.find(
       (r) =>
         r.kind === "garden" &&
-        (archived || !r.archived) &&
         r.id === (gardenId || workspace?.lastGardenId),
-    ) || records.find((r) => r.kind === "garden" && !r.archived);
+    ) || records.find((r) => r.kind === "garden");
+  const historyGardenId = garden?.id || gardenId || workspace?.lastGardenId;
   const chosen = records.find((r) => r.id === selected);
   const planting =
     chosen?.kind === "placement"
@@ -128,7 +128,7 @@ export function App({ repository }: { repository: Repository }) {
   });
   const save = async (changes: Change[], map = false) => {
     const newGarden = changes.find(
-      (c) => !c.before && c.after.kind === "garden",
+      (c) => !c.before && c.after?.kind === "garden",
     )?.after;
     const committed =
       newGarden && workspace
@@ -182,10 +182,10 @@ export function App({ repository }: { repository: Repository }) {
         setPlacementDraft(undefined);
         if (placementDraft) setDirty(false);
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === "z" && garden) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && historyGardenId) {
         e.preventDefault();
         void action(() =>
-          repository.travel(garden.id, e.shiftKey ? "redo" : "undo"),
+          repository.travel(historyGardenId, e.shiftKey ? "redo" : "undo"),
         );
       }
     };
@@ -199,6 +199,20 @@ export function App({ repository }: { repository: Repository }) {
       await fn();
       await cache.invalidateQueries({ queryKey: ["records"] });
       setStatus("Sparat lokalt");
+    } catch (e) {
+      setError((e as Error).message);
+      setStatus("Kunde inte spara");
+    }
+  }
+  async function remove(record: RecordData) {
+    if (!confirm(`Ta bort ${record.name || "posten"}? Åtgärden kan ångras.`))
+      return;
+    try {
+      await save(deleteRecordChanges(record, records), true);
+      setSelected(undefined);
+      setEditor(undefined);
+      setDirty(false);
+      setTool("select");
     } catch (e) {
       setError((e as Error).message);
       setStatus("Kunde inte spara");
@@ -438,11 +452,10 @@ export function App({ repository }: { repository: Repository }) {
               Välj trädgård
             </option>
             {records
-              .filter((r) => r.kind === "garden" && (archived || !r.archived))
+              .filter((r) => r.kind === "garden")
               .map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
-                  {r.archived ? " (arkiverad)" : ""}
                 </option>
               ))}
           </select>
@@ -454,14 +467,6 @@ export function App({ repository }: { repository: Repository }) {
           {garden && (
             <button onClick={() => edit(garden)}>Trädgårdens egenskaper</button>
           )}
-          <label>
-            <input
-              type="checkbox"
-              checked={archived}
-              onChange={(e) => setArchived(e.target.checked)}
-            />{" "}
-            Visa arkiverade
-          </label>
         </div>
       </div>
       <Routes>
@@ -503,9 +508,7 @@ export function App({ repository }: { repository: Repository }) {
                         setTool(t);
                         setPlantingToPlace(undefined);
                         if (
-                          t === "planting" &&
-                          chosen?.kind === "plant" &&
-                          !chosen.archived
+                          t === "planting" && chosen?.kind === "plant"
                         )
                           setPlantId(chosen.id);
                       }}
@@ -549,7 +552,7 @@ export function App({ repository }: { repository: Repository }) {
                       >
                         <option value="">Välj en växt</option>
                         {records
-                          .filter((r) => r.kind === "plant" && !r.archived)
+                          .filter((r) => r.kind === "plant")
                           .map((r) => (
                             <option key={r.id} value={r.id}>
                               {r.name}
@@ -658,7 +661,6 @@ export function App({ repository }: { repository: Repository }) {
                       (r) =>
                         (r.gardenId === garden?.id || r.kind === "plant") &&
                         ["object", "planting", "plant"].includes(r.kind) &&
-                        (archived || !r.archived) &&
                         [
                           r.name,
                           ...plantingPlants(r).map((plant) => plant.name),
@@ -697,13 +699,11 @@ export function App({ repository }: { repository: Repository }) {
                         <span>
                           {r.name}
                           <small>
-                            {r.archived
-                              ? "Arkiverad"
-                              : r.kind === "plant"
-                                ? "Växtregister"
-                                : r.kind === "planting"
-                                  ? `${r.count} planta/plantor`
-                                  : r.category}
+                            {r.kind === "plant"
+                              ? "Växtregister"
+                              : r.kind === "planting"
+                                ? `${r.count} planta/plantor`
+                                : r.category}
                           </small>
                         </span>
                       </button>
@@ -722,21 +722,25 @@ export function App({ repository }: { repository: Repository }) {
                   </div>
                   <div className="actions">
                     <button
-                      disabled={!garden}
+                      disabled={!historyGardenId}
                       aria-label="Ångra"
                       onClick={() =>
-                        garden &&
-                        void action(() => repository.travel(garden.id, "undo"))
+                        historyGardenId &&
+                        void action(() =>
+                          repository.travel(historyGardenId, "undo"),
+                        )
                       }
                     >
                       <FiArrowLeft /> Ångra
                     </button>
                     <button
-                      disabled={!garden}
+                      disabled={!historyGardenId}
                       aria-label="Gör om"
                       onClick={() =>
-                        garden &&
-                        void action(() => repository.travel(garden.id, "redo"))
+                        historyGardenId &&
+                        void action(() =>
+                          repository.travel(historyGardenId, "redo"),
+                        )
                       }
                     >
                       Gör om <FiArrowRight />
@@ -756,7 +760,6 @@ export function App({ repository }: { repository: Repository }) {
                     edgeSnap={edgeSnap}
                     structure={structure}
                     plants={plants}
-                    archived={archived}
                     onSelect={(id) => {
                       return select(id);
                     }}
@@ -883,6 +886,7 @@ export function App({ repository }: { repository: Repository }) {
                     records={records}
                     save={save}
                     onDirty={setDirty}
+                    onDelete={remove}
                     cancel={() => setEditor(undefined)}
                   />
                 ) : placementDraft ? (
@@ -934,8 +938,7 @@ export function App({ repository }: { repository: Repository }) {
                           .filter(
                             (r) =>
                               r.kind === "object" &&
-                              r.gardenId === garden?.id &&
-                              !r.archived,
+                              r.gardenId === garden?.id,
                           )
                           .map((r) => (
                             <option key={r.id} value={r.id}>
@@ -1012,6 +1015,14 @@ export function App({ repository }: { repository: Repository }) {
                       >
                         Redigera egenskaper
                       </button>
+                      {chosen.kind !== "workspace" && (
+                        <button
+                          className="btn btn-outline-danger"
+                          onClick={() => void remove(chosen)}
+                        >
+                          Ta bort
+                        </button>
+                      )}
                       {planting && chosen.kind === "placement" && (
                         <button onClick={() => edit(planting)}>
                           Redigera plantering och antal
@@ -1075,26 +1086,6 @@ export function App({ repository }: { repository: Repository }) {
                           Duplicera tom yta
                         </button>
                       )}
-                      <button
-                        onClick={() =>
-                          void action(() =>
-                            save(
-                              [
-                                {
-                                  before: chosen,
-                                  after: {
-                                    ...chosen,
-                                    archived: !chosen.archived,
-                                  },
-                                },
-                              ],
-                              ["object", "placement"].includes(chosen.kind),
-                            ),
-                          )
-                        }
-                      >
-                        {chosen.archived ? "Återställ" : "Arkivera"}
-                      </button>
                     </div>
                     {planting && (
                       <>
@@ -1167,7 +1158,6 @@ export function App({ repository }: { repository: Repository }) {
                 garden={garden}
                 date={date}
                 setDate={setDate}
-                archived={archived}
                 onEdit={edit}
                 onCreate={() => create("event")}
               />
@@ -1178,6 +1168,7 @@ export function App({ repository }: { repository: Repository }) {
                     record={editor}
                     records={records}
                     save={save}
+                    onDelete={remove}
                     cancel={() => setEditor(undefined)}
                     onDirty={setDirty}
                   />
@@ -1205,7 +1196,6 @@ function Journal({
   garden,
   date,
   setDate,
-  archived,
   onEdit,
   onCreate,
 }: {
@@ -1213,7 +1203,6 @@ function Journal({
   garden?: RecordData;
   date: string;
   setDate: (s: string) => void;
-  archived: boolean;
   onEdit: (r: RecordData) => void;
   onCreate: () => void;
 }) {
@@ -1225,7 +1214,6 @@ function Journal({
       (r) =>
         r.kind === "event" &&
         r.gardenId === garden?.id &&
-        (archived || !r.archived) &&
         (!type || r.eventType === type) &&
         (!plant ||
           plantingPlants(records.find((p) => p.id === r.targetId)).some(
@@ -1382,8 +1370,8 @@ function Storage({
         <h2>Säkerhetskopiera och flytta</h2>
         <p>
           Backup bevarar alla ID:n och återställs endast i en tom arbetsyta.
-          Trädgårdsimport skapar en kopia med nya ID:n. Arkiv och hela
-          växtregistret ingår.
+          Trädgårdsimport skapar en kopia med nya ID:n. Hela växtregistret
+          ingår.
         </p>
         <div className="actions">
           <button

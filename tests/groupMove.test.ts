@@ -45,9 +45,9 @@ test("a group translates by one common vector without resizing or rotation", () 
   const { a, b, all } = records();
   const changes = translateGroup([a, b], all, { x: 1.23, y: -0.47 });
   for (const c of changes) {
-    expect(c.after.geometry!.x - c.before!.geometry!.x).toBeCloseTo(1.23);
-    expect(c.after.geometry!.y - c.before!.geometry!.y).toBeCloseTo(-0.47);
-    expect(c.after.geometry!.rotation).toBe(30);
+    expect(c.after!.geometry!.x - c.before!.geometry!.x).toBeCloseTo(1.23);
+    expect(c.after!.geometry!.y - c.before!.geometry!.y).toBeCloseTo(-0.47);
+    expect(c.after!.geometry!.rotation).toBe(30);
   }
   expect(groupBounds([a, b], all).width).toBeGreaterThan(8);
 });
@@ -56,11 +56,11 @@ test("bound children move exactly once, including under a rotated parent", () =>
   const changes = translateGroup([a, child], all, { x: 2, y: 1 });
   expect(changes).toHaveLength(1);
   expect(changes[0].before!.id).toBe(a.id);
-  const updated = all.map((r) => (r.id === a.id ? changes[0].after : r));
+  const updated = all.map((r) => (r.id === a.id ? changes[0].after! : r));
   expect(
     worldGeometry(child, updated).x - worldGeometry(child, all).x,
   ).toBeCloseTo(2);
-  const alone = translateGroup([child], all, { x: 2, y: 1 })[0].after;
+  const alone = translateGroup([child], all, { x: 2, y: 1 })[0].after!;
   expect(worldGeometry(alone, all).x - worldGeometry(child, all).x).toBeCloseTo(
     2,
   );

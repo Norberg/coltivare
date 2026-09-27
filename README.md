@@ -80,9 +80,9 @@ Strukturobjektens geometri har inte full tidsversionering: ritkorrigeringar
 gäller alla datum. Dokumentera fysisk ombyggnad genom slutdatum på den gamla
 ytan och en ny yta. Geometriska varningar är inte biologiska odlingsråd.
 
-Arkivering är reversibel. Aktivera ”Visa arkiverade” och välj Återställ i
-objektets egenskaper. Inga domänposter permanentraderas av användargränssnittet.
-Ångra/Gör om bevarar upp till 50 kartkommandon per trädgård i IndexedDB.
+Arkivering ingår inte. Äldre arkiverade poster rensas automatiskt från den
+lokala databasen. Ångra/Gör om bevarar upp till 50 kartkommandon per trädgård
+i IndexedDB; att ångra ett skapande tar bort posten och Gör om återställer den.
 Ctrl/Cmd+Z respektive Ctrl/Cmd+Shift+Z fungerar när du inte skriver i ett fält.
 Escape avbryter ritning/dragning. Objekt kan även väljas i den sökbara listan;
 mått och rotation kan anges i formulär. Decimaler med komma stöds.
@@ -156,7 +156,7 @@ framför planteringens färg. Färger och ikoner följer med vid export/import.
 Under Lagring finns två olika exportflöden:
 
 - **Exportera trädgård** inkluderar den valda trädgården, dess historikposter
-  och hela växtregistret, även oanvända och arkiverade växter. Import skapar en
+  och hela växtregistret, även oanvända växter. Import skapar en
   separat trädgård med nya UUID:n och ompekade relationer.
 - **Säkerhetskopiera allt** inkluderar alla trädgårdar, växter, inställningar
   och ångerhistorik. Återställning bevarar ID:n och tillåts endast i en tom

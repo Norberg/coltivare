@@ -3,6 +3,7 @@ import {
   DomainError,
   makeRecord,
   parseSnapshot,
+  purgeArchivedState,
   validateRecords,
   type Change,
   type History,
@@ -121,9 +122,23 @@ export class IndexedRepository implements Repository {
   async list() {
     try {
       const db = await this.connection(),
-        tx = db.transaction("records", "readwrite"),
-        store = tx.objectStore("records");
+        tx = db.transaction(["records", "history"], "readwrite"),
+        store = tx.objectStore("records"),
+        historyStore = tx.objectStore("history");
       let all: RecordData[] = await store.getAll();
+      const histories: History[] = await historyStore.getAll();
+      const hasLegacyArchive =
+        all.some((record) => "archived" in record) ||
+        histories.some((history) => JSON.stringify(history).includes('"archived"'));
+      if (hasLegacyArchive) {
+        const cleaned = purgeArchivedState(all, histories);
+        validateRecords(cleaned.records);
+        await store.clear();
+        await historyStore.clear();
+        for (const record of cleaned.records) await store.add(record);
+        for (const history of cleaned.histories) await historyStore.add(history);
+        all = cleaned.records;
+      }
       if (!all.length) {
         const id = crypto.randomUUID();
         const workspace = makeRecord("workspace", id, {
@@ -149,8 +164,12 @@ export class IndexedRepository implements Repository {
       const map = new Map(all.map((r) => [r.id, r]));
       const saved: Change[] = [];
       for (const change of changes) {
+        const target = change.after || change.before;
+        if (!target)
+          throw new DomainError("validation", "En tom ändring kan inte sparas.");
         if (
           change.before &&
+          change.after &&
           (change.before.id !== change.after.id ||
             change.before.kind !== change.after.kind ||
             change.before.workspaceId !== change.after.workspaceId)
@@ -159,22 +178,29 @@ export class IndexedRepository implements Repository {
             "validation",
             "En uppdatering får inte byta identitet, typ eller arbetsyta.",
           );
-        const current = map.get(change.after.id);
+        const current = map.get(target.id);
         if ((current?.revision ?? 0) !== (change.before?.revision ?? 0))
           throw new DomainError(
             "conflict",
             `Ändringen sparades inte. En annan flik har redan sparat version ${current?.revision ?? 0} (${current?.updatedAt ?? ""}). Dina formulärvärden finns kvar; läs den senaste versionen innan du försöker igen.`,
           );
-        const after = {
-          ...change.after,
-          revision: (current?.revision ?? 0) + 1,
-          updatedAt: new Date().toISOString(),
-        };
-        map.set(after.id, after);
-        saved.push({ before: current, after });
+        if (change.after) {
+          const after = {
+            ...change.after,
+            revision: (current?.revision ?? 0) + 1,
+            updatedAt: new Date().toISOString(),
+          };
+          map.set(after.id, after);
+          saved.push({ before: current, after });
+        } else {
+          map.delete(target.id);
+          saved.push({ before: current });
+        }
       }
       validateRecords([...map.values()]);
-      for (const c of saved) await store.put(c.after);
+      for (const c of saved)
+        if (c.after) await store.put(c.after);
+        else if (c.before) await store.delete(c.before.id);
       if (gardenId) {
         const h: History = (await tx.objectStore("history").get(gardenId)) || {
           id: gardenId,
@@ -225,25 +251,38 @@ export class IndexedRepository implements Repository {
         map = new Map(all.map((r) => [r.id, r]));
       const inverse: Change[] = [];
       for (const c of [...command].reverse()) {
-        const current = map.get(c.after.id)!;
+        const target = c.after || c.before;
+        if (!target)
+          throw new DomainError("validation", "Historiken innehåller en tom ändring.");
+        const current = map.get(target.id);
         // Revisions can advance through undo/redo, but unrelated edits must not be overwritten.
         const content = (r: RecordData) =>
           JSON.stringify({ ...r, revision: 0, updatedAt: "" });
-        if (content(current) !== content(c.after))
+        if (
+          (c.after && (!current || content(current) !== content(c.after))) ||
+          (!c.after && current)
+        )
           throw new DomainError(
             "conflict",
             "Objektet har ändrats sedan kartoperationen. Ångra kan inte skriva över den versionen.",
           );
-        const after = {
-          ...(c.before || { ...current, archived: true }),
-          revision: current.revision + 1,
-          updatedAt: new Date().toISOString(),
-        };
-        map.set(after.id, after);
-        inverse.push({ before: current, after });
+        if (c.before) {
+          const after = {
+            ...c.before,
+            revision: Math.max(current?.revision ?? 0, c.before.revision) + 1,
+            updatedAt: new Date().toISOString(),
+          };
+          map.set(after.id, after);
+          inverse.push({ before: current, after });
+        } else {
+          map.delete(target.id);
+          inverse.push({ before: current });
+        }
       }
       validateRecords([...map.values()]);
-      for (const c of inverse) await store.put(c.after);
+      for (const c of inverse)
+        if (c.after) await store.put(c.after);
+        else if (c.before) await store.delete(c.before.id);
       h[direction === "undo" ? "redo" : "undo"].push(inverse);
       await tx.objectStore("history").put(h);
       await tx.done;

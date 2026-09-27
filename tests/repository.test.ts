@@ -175,10 +175,10 @@ test("undo/redo persists over reopening and never deletes domain history", async
   await repo.travel(g.id, "redo");
   expect((await repo.list()).find((r) => r.id === o.id)?.geometry?.x).toBe(3);
 });
-test("garden import remaps relationships and includes unused archived plants", async () => {
+test("garden import remaps relationships and includes unused plants", async () => {
   const { g, w } = await fixture();
   await repo.commit([
-    { after: makeRecord("plant", w.id, { name: "Oanvänd", archived: true }) },
+    { after: makeRecord("plant", w.id, { name: "Oanvänd" }) },
   ]);
   const snapshot = await repo.export(g.id);
   await repo.import(snapshot);
@@ -430,8 +430,123 @@ test("workspace backup preserves undo history", async () => {
   await other.import(backup);
   expect(await other.history(g.id)).toEqual(await repo.history(g.id));
   await other.travel(g.id, "undo");
-  expect((await other.list()).find((r) => r.id === g.id)?.archived).toBe(true);
+  expect((await other.list()).find((r) => r.id === g.id)).toBeUndefined();
+  const undoneBackup = await other.export();
+  const restored = new IndexedRepository(crypto.randomUUID());
+  await restored.list();
+  await restored.import(undoneBackup);
+  await restored.travel(g.id, "redo");
+  expect((await restored.list()).find((r) => r.id === g.id)?.name).toBe(
+    "Min trädgård",
+  );
+  await restored.close();
   await other.close();
+});
+test("legacy archived data is purged while ordinary undo history remains", async () => {
+  const name = crypto.randomUUID();
+  const initial = new IndexedRepository(name);
+  const [workspace] = await initial.list();
+  await initial.close();
+  const garden = makeRecord("garden", workspace.id, {
+    name: "Migrerad trädgård",
+    width: 10,
+    height: 10,
+  });
+  const before = makeRecord("object", workspace.id, {
+    name: "Före",
+    gardenId: garden.id,
+    geometry: {
+      x: 1,
+      y: 1,
+      width: 2,
+      height: 1,
+      rotation: 0,
+      shape: "rectangle",
+    },
+  });
+  const after = { ...before, name: "Efter", revision: 1 };
+  const removed = makeRecord("plant", workspace.id, { name: "Arkiverad" });
+  const removedBed = makeRecord("object", workspace.id, {
+    name: "Arkiverad bädd",
+    gardenId: garden.id,
+    geometry: {
+      x: 4,
+      y: 5,
+      width: 2,
+      height: 1,
+      rotation: 0,
+      shape: "rectangle",
+    },
+  });
+  const activePlant = makeRecord("plant", workspace.id, { name: "Bevarad" });
+  const planting = makeRecord("planting", workspace.id, {
+    name: "Bevarad plantering",
+    gardenId: garden.id,
+    plantId: activePlant.id,
+    snapshot: activePlant,
+    count: 1,
+  });
+  const placement = makeRecord("placement", workspace.id, {
+    name: planting.name,
+    gardenId: garden.id,
+    plantingId: planting.id,
+    objectId: removedBed.id,
+    startDate: "2027-01-01",
+    layer: "actual",
+    geometry: {
+      x: 0.5,
+      y: 0.5,
+      width: 0.5,
+      height: 0.5,
+      rotation: 0,
+      shape: "rectangle",
+    },
+  });
+  const legacy = await openDB(name);
+  const tx = legacy.transaction(["records", "history"], "readwrite");
+  await tx.objectStore("records").put({ ...workspace, archived: false });
+  await tx.objectStore("records").put({ ...garden, archived: false });
+  await tx.objectStore("records").put({ ...after, archived: false });
+  await tx.objectStore("records").put({ ...removed, archived: true });
+  await tx.objectStore("records").put({ ...removedBed, archived: true });
+  await tx.objectStore("records").put({ ...activePlant, archived: false });
+  await tx.objectStore("records").put({ ...planting, archived: false });
+  await tx.objectStore("records").put({ ...placement, archived: false });
+  await tx.objectStore("history").put({
+    id: garden.id,
+    undo: [
+      [{ after: { ...removed, archived: true } }],
+      [
+        {
+          before: { ...before, archived: false },
+          after: { ...after, archived: false },
+        },
+      ],
+    ],
+    redo: [],
+  });
+  await tx.done;
+  legacy.close();
+
+  const migrated = new IndexedRepository(name);
+  try {
+    const records = await migrated.list();
+    expect(records.some((record) => record.id === removed.id)).toBe(false);
+    expect(records.some((record) => record.id === removedBed.id)).toBe(false);
+    expect(JSON.stringify(records)).not.toContain('"archived"');
+    const migratedPlacement = records.find(
+      (record) => record.id === placement.id,
+    )!;
+    expect(migratedPlacement.objectId).toBeUndefined();
+    expect(migratedPlacement.geometry).toMatchObject({ x: 4.5, y: 5.5 });
+    expect((await migrated.history(garden.id)).undo).toHaveLength(1);
+    await migrated.travel(garden.id, "undo");
+    expect(
+      (await migrated.list()).find((record) => record.id === before.id)?.name,
+    ).toBe("Före");
+  } finally {
+    await migrated.close();
+  }
 });
 // A consumer-side adapter verifies that the port has no IndexedDB-specific arguments.
 test("the repository port can be injected without storage-engine types", async () => {
@@ -439,7 +554,11 @@ test("the repository port can be injected without storage-engine types", async (
   const adapter: Repository = {
     list: async () => data,
     commit: async (changes) => {
-      data.push(...changes.map((c) => c.after));
+      data.push(
+        ...changes
+          .map((change) => change.after)
+          .filter((record): record is RecordData => !!record),
+      );
     },
     travel: async () => {},
     history: async (id) => ({ id, undo: [], redo: [] }),

@@ -390,10 +390,6 @@ small {
   stroke: #df942c;
   stroke-width: 0.09;
 }
-.archived {
-  opacity: 0.4;
-  stroke-dasharray: 0.15;
-}
 .draft {
   fill: #c6d5ac88;
   stroke: #3a6b4a;

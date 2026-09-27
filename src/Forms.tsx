@@ -68,12 +68,14 @@ export function RecordForm({
   save,
   cancel,
   onDirty,
+  onDelete,
 }: {
   record: RecordData;
   records: RecordData[];
   save: (changes: Change[], map?: boolean) => Promise<void>;
   cancel: () => void;
   onDirty: (v: boolean) => void;
+  onDelete?: (record: RecordData) => Promise<void>;
 }) {
   const [draft, setDraft] = useState(record);
   const [move, setMove] = useState(false);
@@ -609,8 +611,7 @@ export function RecordForm({
                         .filter(
                           (r) =>
                             r.kind === "object" &&
-                            r.gardenId === draft.gardenId &&
-                            !r.archived,
+                            r.gardenId === draft.gardenId,
                         )
                         .map((r) => (
                           <option key={r.id} value={r.id}>
@@ -698,28 +699,13 @@ export function RecordForm({
         >
           Avbryt
         </button>
-        {record.revision > 0 && (
+        {record.revision > 0 && record.kind !== "workspace" && onDelete && (
           <button
             type="button"
-            onClick={async () => {
-              try {
-                await save(
-                  [
-                    {
-                      before: record,
-                      after: { ...record, archived: !record.archived },
-                    },
-                  ],
-                  ["object", "placement"].includes(record.kind),
-                );
-                onDirty(false);
-                cancel();
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            }}
+            className="btn btn-outline-danger"
+            onClick={() => void onDelete(record)}
           >
-            {record.archived ? "Återställ" : "Arkivera"}
+            Ta bort
           </button>
         )}
       </div>

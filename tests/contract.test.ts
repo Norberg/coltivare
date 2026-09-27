@@ -109,20 +109,14 @@ describe.each([
     ).rejects.toMatchObject({ code: "validation" });
     expect(await repository.list()).toEqual(state);
   });
-  test("archive, undo and redo preserve records and relationships", async () => {
-    const { g } = await setup();
-    const before = (await repository.list()).find((r) => r.id === g.id)!;
-    await repository.commit(
-      [{ before, after: { ...before, archived: true } }],
-      g.id,
-    );
+  test("undo deletes creations and redo restores records and relationships", async () => {
+    const { g, p, place } = await setup();
     await repository.travel(g.id, "undo");
-    expect((await repository.list()).find((r) => r.id === g.id)?.archived).toBe(
-      false,
-    );
+    expect((await repository.list()).find((r) => r.id === g.id)).toBeUndefined();
+    expect((await repository.list()).find((r) => r.id === place.id)).toBeUndefined();
     await repository.travel(g.id, "redo");
-    expect((await repository.list()).find((r) => r.id === g.id)?.archived).toBe(
-      true,
-    );
+    const restored = await repository.list();
+    expect(restored.find((r) => r.id === place.id)?.plantingId).toBe(p.id);
+    expect(restored.find((r) => r.id === p.id)?.gardenId).toBe(g.id);
   });
 });

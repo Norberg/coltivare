@@ -909,6 +909,18 @@ test("Dragging a planting keeps its preview until saved, including with an open 
   await page.reload();
   await expect(page.locator("svg .plant-shape")).toHaveCount(1);
 });
+test("Deleting a selected object is undoable and redoable", async ({ page }) => {
+  await createGarden(page);
+  await draw(page, "Rektangel");
+  await expect(page.locator("svg .structure-shape")).toHaveCount(1);
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Ta bort", exact: true }).click();
+  await expect(page.locator("svg .structure-shape")).toHaveCount(0);
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  await expect(page.locator("svg .structure-shape")).toHaveCount(1);
+  await page.getByRole("button", { name: "Gör om", exact: true }).click();
+  await expect(page.locator("svg .structure-shape")).toHaveCount(0);
+});
 test("Planting without a chosen plant explains what is missing and keeps the area until cancelled", async ({
   page,
 }) => {
@@ -1411,7 +1423,7 @@ test("AT-10: numeric geometry, bound rotation, zoom and persistent undo", async 
     /rotate\(45\)/,
   );
 });
-test("AT-16–18: catalogue snapshots, reversible archive and overlap warning", async ({
+test("AT-16–18: catalogue snapshots, no archive controls and overlap warning", async ({
   page,
 }) => {
   await createGarden(page);
@@ -1438,21 +1450,10 @@ test("AT-16–18: catalogue snapshots, reversible archive and overlap warning", 
       "Skörd min (dagar)"
     ],
   ).toBeUndefined();
-  await page.getByRole("button", { name: "Arkivera", exact: true }).click();
-  await expect(page.locator(".plant-shape")).toHaveCount(1);
-  await page.getByLabel("Visa arkiverade").check();
-  await page.getByRole("button", { name: "Återställ", exact: true }).click();
-  await page.getByLabel("Visa arkiverade").uncheck();
-  await page
-    .locator(".object-list button")
-    .filter({ hasText: "Bädd A" })
-    .click();
-  await page.getByRole("button", { name: "Arkivera", exact: true }).click();
-  await expect(page.locator(".structure-shape")).toHaveCount(0);
-  await expect(page.locator(".plant-shape")).toHaveCount(1);
-  await page.getByLabel("Visa arkiverade").check();
-  await page.getByRole("button", { name: "Återställ", exact: true }).click();
-  await page.getByLabel("Visa arkiverade").uncheck();
+  await expect(
+    page.getByRole("button", { name: "Arkivera", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel("Visa arkiverade")).toHaveCount(0);
   await plant(page, "Nytt sortnamn", false, { bound: "Bädd A" });
   await expect(page.locator(".plant-shape")).toHaveCount(2);
   await page.locator(".warnings summary").click();
@@ -1600,7 +1601,6 @@ async function previousSchema(page: Page, version = 1, keepOpen = false) {
         createdAt: now,
         updatedAt: now,
         revision: 1,
-        archived: false,
         notes: "",
       };
       const records = [

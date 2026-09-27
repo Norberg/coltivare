@@ -41,12 +41,11 @@ interface Props {
   edgeSnap: boolean;
   structure: boolean;
   plants: boolean;
-  archived: boolean;
   placementDraft?: Geometry;
   pathWidth?: number;
   onSelect: (id: string) => boolean;
-  onCreate: (g: Geometry) => void;
-  onMove: (r: RecordData, g: Geometry) => void;
+  onCreate: (g: Geometry) => void | Promise<void>;
+  onMove: (r: RecordData, g: Geometry) => Promise<void>;
   onMoveMany: (changes: Change[]) => Promise<boolean>;
   onCancel: () => void;
 }
@@ -98,16 +97,13 @@ export function GardenMap(p: Props) {
       p.records
         .filter(
           (r) =>
-            (p.archived || !r.archived) &&
             r.gardenId === p.garden.id &&
             active(r, p.date) &&
             ((r.kind === "object" && p.structure) ||
-              (r.kind === "placement" &&
-                p.plants &&
-                (p.archived || !byId.get(r.plantingId!)?.archived))),
+              (r.kind === "placement" && p.plants)),
         )
         .sort((a, b) => mapLayer(a) - mapLayer(b)),
-    [p.records, p.archived, p.garden.id, p.date, p.structure, p.plants, byId],
+    [p.records, p.garden.id, p.date, p.structure, p.plants],
   );
   const snapTargets = useMemo(
     () =>
@@ -319,7 +315,7 @@ export function GardenMap(p: Props) {
             key={r.id}
             data-layer={mapLayer(r)}
             transform={`translate(${g.x} ${g.y}) rotate(${g.rotation})`}
-            className={`${r.kind === "placement" ? "plant-shape" : "structure-shape"} ${(p.tool === "move" && multi ? marked.includes(r.id) : p.selected === r.id) ? "selected" : ""} ${r.archived ? "archived" : ""}`}
+            className={`${r.kind === "placement" ? "plant-shape" : "structure-shape"} ${(p.tool === "move" && multi ? marked.includes(r.id) : p.selected === r.id) ? "selected" : ""}`}
             onPointerDown={(e) => {
               if (e.button !== 0 || (p.tool !== "select" && p.tool !== "move"))
                 return;
@@ -633,7 +629,7 @@ export function GardenMap(p: Props) {
               shape: p.tool === "ellipse" ? "ellipse" : "rectangle",
             });
         }}
-        onPointerUp={() => {
+        onPointerUp={async () => {
           if (gesture?.marquee) {
             const box = draft ? bounds(draft) : undefined;
             setMarked(
@@ -659,7 +655,7 @@ export function GardenMap(p: Props) {
           }
           if (gesture?.group) {
             if (groupDelta)
-              void saveGroup(
+              await saveGroup(
                 translateGroup(gesture.group, p.records, groupDelta),
               );
             else
@@ -701,9 +697,9 @@ export function GardenMap(p: Props) {
                       rotation: g.rotation - parent.rotation,
                     }
                   : g;
-                p.onMove(gesture.record, local);
+                await p.onMove(gesture.record, local);
               }
-            } else p.onCreate(g);
+            } else await p.onCreate(g);
           }
           setGesture(undefined);
           setDraft(undefined);

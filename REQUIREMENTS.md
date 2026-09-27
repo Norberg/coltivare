@@ -45,10 +45,10 @@ placeringar och journalhändelser. Planerade lager, planerade uppgifter och
 bekräftelseflöden mellan plan och utfall ingår inte. Kartan visar hur
 trädgården såg ut eller ser ut på valt datum, inklusive faktisk historik.
 
-**BESLUT-05:** Arkivering är alltid reversibel. Domänposter ska inte kunna
-permanentraderas i P0. En arkiverad post ska kunna återställas och dess
-historik och relationer ska bevaras. Arkiverade poster är dolda som standard
-och visas samt återställs via ett filter.
+**BESLUT-05:** Arkivering ingår inte. Äldre arkiverade poster och tillhörande
+arkiveringskommandon rensas vid migrering. Ångra/gör om ska fortsatt vara
+reversibelt: att ångra ett skapande tar bort posten och att göra om återställer
+den och dess relationer atomiskt.
 
 **BESLUT-06:** Kalenderdatum får ligga i dåtid, nutid eller framtid. Ett datum
 i framtiden är inte i sig en planerad post; samma modell används för alla
@@ -130,9 +130,8 @@ polygonredigering på mobil är P1. Desktopflödet ska fungera vid 1280 × 800.
 
 ### MAP-01 — Trädgård
 
-Användaren ska kunna skapa, namnge, öppna, arkivera och återställa trädgårdar.
-Arkiverade trädgårdar är dolda som standard och visas via ett filter. En
-trädgård har måttsatt arbetsyta och valfria anteckningar. Den får inte vara låst till ett
+Användaren ska kunna skapa, namnge och öppna trädgårdar. En trädgård har
+måttsatt arbetsyta och valfria anteckningar. Den får inte vara låst till ett
 årtal, ett rutnät eller en enda odlingsbädd.
 
 ### MAP-02 — Objekt och former
@@ -161,7 +160,7 @@ snäppning.
 ### MAP-04 — Redigering
 
 Användaren ska kunna panorera och zooma, markera objekt, flytta, rotera,
-ändra storlek, duplicera och arkivera. Numeriska mått ska kunna anges.
+ändra storlek och duplicera. Numeriska mått ska kunna anges.
 Escape avbryter pågående ritning eller dragning. Kortkommandon får inte
 utlösas när användaren skriver i ett textfält.
 
@@ -180,8 +179,8 @@ Att dölja strukturlagret får inte automatiskt dölja planteringslagret.
 
 Minst de senaste 20 kartoperationerna per trädgård ska kunna ångras och göras
 om, även efter omladdning eller normal omstart av webbläsaren i samma profil
-och origin. Detta gäller skapande, flytt, rotation, storleksändring och
-arkivering. Själva ånger-/gör-om-historiken och dess resultat ska sparas
+och origin. Detta gäller skapande, flytt, rotation och storleksändring.
+Själva ånger-/gör-om-historiken och dess resultat ska sparas
 korrekt i IndexedDB. Journalredigering behöver inte ingå i samma
 ångerhistorik.
 
@@ -205,9 +204,8 @@ nytt. En växts flytt mellan platser hanteras däremot med daterade placeringar.
 ### MAP-08 — Livslängd för strukturer
 
 Strukturobjekt får ha valfritt anläggningsdatum och sista visningsdatum.
-Utan datum visas de på alla datum. Ett objekt med kopplad odlingshistorik får
-inte raderas med tyst kaskadradering av planteringar eller händelser.
-Arkivering ska erbjudas i stället. Planteringar med aktiva perioder får inte
+Utan datum visas de på alla datum. Gränssnittet erbjuder varken arkivering
+eller permanent radering av objekt. Planteringar med aktiva perioder får inte
 tyst försvinna för att den kopplade ytans egen period har avslutats; visa i
 stället en varning om den inkonsekventa historiken.
 
@@ -215,7 +213,7 @@ stället en varning om den inkonsekventa historiken.
 
 ### PLANT-01 — Användaren äger katalogen
 
-Det ska gå att skapa, söka, redigera, arkivera och återställa egna växtposter.
+Det ska gå att skapa, söka och redigera egna växtposter.
 Växtnamn är obligatoriskt. Alla odlingsuppgifter utöver namn ska kunna lämnas
 tomma. Växter som saknas i en medföljande katalog får aldrig vara blockerade.
 
@@ -438,8 +436,8 @@ deras poster har sparats.
 
 En trädgård ska kunna exporteras till versionsmärkt JSON med samtliga
 växtposter, ögonblicksbilder, objekt, planteringar, placeringar och
-journalhändelser. Arkiverade poster och växtposter som ännu inte används ska
-alltid ingå. Import ska skapa en ny trädgård med nya interna UUID:n och
+journalhändelser. Växtposter som ännu inte används ska alltid ingå. Import
+ska skapa en ny trädgård med nya interna UUID:n och
 bibehållna relationer, inte skriva över befintlig data.
 
 Formatet ska innehålla `schemaVersion`, `exportKind` och `exportedAt`.
@@ -456,7 +454,7 @@ får ske. Exportfiler får aldrig innehålla autentiseringstoken eller hemlighet
 ### DATA-04 — Backup av hela den lokala arbetsytan
 
 Utöver trädgårdsexport ska ”Säkerhetskopiera allt” spara samtliga
-trädgårdar, även arkiverade poster, oanvända egna växtposter och beständiga
+trädgårdar, oanvända egna växtposter och beständiga
 inställningar. En backup ska kunna återställas i en tom lokal arbetsyta med
 bevarade ID:n och relationer. För P0 ska återställning till en icke-tom
 arbetsyta avvisas med tydlig förklaring; bygg ingen tyst ersättning eller
@@ -616,7 +614,7 @@ ska finnas i produktionsflödet nu; en minnesadapter får användas i tester.
 
 Repository-kontrakt ska vara typade och asynkrona från början, även när
 datat finns lokalt. De ska omfatta läsning, validerad skrivning, förväntad
-revision, arkivering samt atomiska sammansatta kommandon. Minst fysisk flytt,
+revision, historikförd borttagning samt atomiska sammansatta kommandon. Minst fysisk flytt,
 exportögonblicksbild och import/återställning ska ha
 tydliga transaktionsgränser. En rad separata `save()`-anrop utan gemensam
 transaktion uppfyller inte kravet.
@@ -697,7 +695,7 @@ Domänmodellen ska vara portabel till en framtida PostgreSQL-databas:
 | Begrepp | Ansvar |
 |---|---|
 | Workspace | Lokal arbetsytas stabila UUID och beständiga inställningar; inget konto. |
-| Garden | Namn, mått, enheter, tidszon, arbetsytereferens och arkivering. |
+| Garden | Namn, mått, enheter, tidszon och arbetsytereferens. |
 | GardenObject | Strukturobjekt med typ, geometri, låsning och valfri livslängd. |
 | PlantDefinition | Återanvändbar växt-/sortpost med valfria odlingsvärden. |
 | Planting | Ett exemplar eller en odlingsomgång med antal och katalogögonblicksbild. |
@@ -714,8 +712,8 @@ lagringslagret inom samma transaktion.
 
 Flera händelser får höra till samma plantering.
 
-Att arkivera en växtpost får inte förstöra planteringar som redan använder
-den. Att avsluta en placering får inte ta bort planteringen eller dess journal.
+En växtpost som används av en plantering ska bevaras. Att avsluta en placering
+får inte ta bort planteringen eller dess journal.
 
 ## 14. Acceptanstester
 
@@ -734,13 +732,13 @@ odlingsråd. Testmiljön ska kunna styra vilket datum som räknas som idag.
 | AT-08 | Registrera två skördar från samma plantering. Båda finns kvar och den registrerade placeringen har inte automatiskt avslutats. |
 | AT-09 | Flytta en registrerad planta från bädd A till bädd B med flyttdatum 2027-06-01. Kartan visar A den 31 maj och B den 1 juni. Det finns inte två samtidiga registrerade placeringar. |
 | AT-10 | Rita en polygon, redigera ett hörn, flytta och rotera en bädd med bundna planteringar och zooma. Mått och interna avstånd bevaras där de ska. Ångra/gör om återställer respektive läge, även efter omladdning med bevarad ånger-/gör-om-historik. |
-| AT-11 | Exportera trädgården och importera som en ny trädgård. Geometri, datum, antal, relationer, arkiverade poster och oanvända växtposter motsvarar originalet men interna ID:n är nya. En ogiltig referens eller okänd formatversion lämnar databasen oförändrad. |
+| AT-11 | Exportera trädgården och importera som en ny trädgård. Geometri, datum, antal, relationer och oanvända växtposter motsvarar originalet men interna ID:n är nya. En ogiltig referens eller okänd formatversion lämnar databasen oförändrad. |
 | AT-12 | Simulera kvotfel och avbruten IndexedDB-transaktion. UI visar inte ”Sparat lokalt”, osparad inmatning bevaras och inga deländringar finns kvar. Låt två flikar redigera samma revision; första committen vinner och den senare fliken får besked om att dess ändring inte sparades och vilken version som vann. |
 | AT-13 | Appen fungerar utan konto. En anteckning eller import med HTML/script visas som text och kör ingen kod. Ogiltigt importinnehåll avvisas utan skrivning eller nätverksanrop. Produktionsbygget innehåller inga hemligheter eller telemetrianrop. |
 | AT-14 | Visa samma sparade odlingsdatum med webbläsaren inställd på olika tidszoner och runt sommartidsbyte. Datumet är oförändrat. Kontrollera även skottdag och konverteringen från sista dag till exklusivt slutdatum. |
 | AT-15 | Två efterföljande registrerade placeringar för samma plantering behåller sina datum och visar rätt plats på respektive datum. |
 | AT-16 | Ändra en växtposts namn och skördeintervall efter att planteringen skapats. Planteringens sparade värden och journal ändras inte tyst. |
-| AT-17 | Arkivera en växtpost eller bädd med odlingshistorik. Posten är dold som standard, kan visas i arkivfiltret och återställas. Historiken går fortfarande att läsa och exportera. Radering får inte orsaka oannonserad kaskadradering. |
+| AT-17 | Läs en äldre databas med arkiverade poster. Arkiverade poster, beroende data och arkiveringskommandon rensas, fältet försvinner och vanlig ångerhistorik fungerar fortfarande. Ångra ett nyskapat kartobjekt tar bort det och gör om återställer det. |
 | AT-18 | Registrera två olika planteringar som överlappar i tid och rum. Överlappet ger varning men kan sparas. |
 | AT-19 | Ladda appen och koppla bort nätverket. Skapa/redigera en plantering, byt datum och vy samt exportera lokalt. Query-operationer får inte pausas av offline-status. Återanslut och ladda om; ändringarna finns kvar. Offline-omladdning av programfiler ingår inte i detta P0-test. |
 | AT-20 | Starta från ren profil utan backend, API-nycklar eller Supabase-konfiguration. Hela etapp 1 fungerar. Inspektera nätverkstrafiken i produktionsbygget: egna statiska filer är tillåtna, men inga odlingsdata skickas och inga Supabase-anrop sker. |
@@ -810,7 +808,7 @@ laddad app.
 
 ### Etapp 5 — Dataskydd och statisk leverans
 
-Slutför export/import för hela modellen, flikkonflikter, arkivering,
+Slutför export/import för hela modellen, flikkonflikter, äldre arkivmigrering,
 backup/återställning, lagringsstatus, mobilflöden, säkerhetskontroller,
 dokumentation och statiskt produktionsbygge. Verifiera AT-11–13,
 AT-17 och AT-19–25 samt den fullständiga användarresan.

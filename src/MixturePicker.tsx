@@ -12,10 +12,7 @@ export function MixturePicker({
   onChange: (ids: string[]) => void;
 }) {
   const options = records.filter(
-    (r) =>
-      r.kind === "plant" &&
-      r.id !== primaryId &&
-      (!r.archived || selected.includes(r.id)),
+    (r) => r.kind === "plant" && r.id !== primaryId,
   );
   return (
     <fieldset className="mixture-picker">
@@ -39,7 +36,6 @@ export function MixturePicker({
             }
           />{" "}
           {plant.name}
-          {plant.archived ? " (arkiverad)" : ""}
         </label>
       ))}
     </fieldset>

@@ -17,8 +17,6 @@ export function gardenWarnings(
     .filter(
       (r) =>
         r.kind === "placement" &&
-        !r.archived &&
-        !byId.get(r.plantingId!)?.archived &&
         r.gardenId === gardenId,
     )
     .map((record) => {
@@ -26,7 +24,6 @@ export function gardenWarnings(
         parent = byId.get(record.objectId!);
       if (parent) {
         if (
-          parent.archived ||
           (active(record, date) && !active(parent, date)) ||
           (parent.startDate &&
             (!record.startDate || record.startDate < parent.startDate)) ||
@@ -34,7 +31,7 @@ export function gardenWarnings(
             (!record.endDate || record.endDate > parent.endDate))
         )
           warnings.push(
-            `${record.name}: den kopplade ytans visningsperiod täcker inte hela placeringen eller ytan är arkiverad.`,
+            `${record.name}: den kopplade ytans visningsperiod täcker inte hela placeringen.`,
           );
         if (!containsShape(parent.geometry!, geometry))
           warnings.push(

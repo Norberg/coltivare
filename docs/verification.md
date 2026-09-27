@@ -55,11 +55,11 @@ ett-till-ett-mappning till kravspecens 25 scenarier.
 | AT-04–05        | Två grupper efter varandra i samma bädd utan överlappsvarning; befintlig flerårig växt över årsskifte.                                                                                                                                            |
 | AT-06–08        | Sådd utan placering, uttrycklig utplantering, kalender, vattning/gödsling och två skördar utan automatiskt slutdatum.                                                                                                                             |
 | AT-09–10,15     | Atomisk daterad flytt, polygonhörn med draghandtag, decimaler med komma, bundna koordinater/rotation, zoom och beständig ångra/gör om.                                                                                                            |
-| AT-11           | Filväljare och trädgårdskopia med nya ID:n. Repositoryproven verifierar relationer, arkiv, oanvända växter, geometri och datum. Ogiltiga filer lämnar data oförändrad.                                                                            |
+| AT-11           | Filväljare och trädgårdskopia med nya ID:n. Repositoryproven verifierar relationer, oanvända växter, geometri och datum. Ogiltiga filer lämnar data oförändrad.                                                                                   |
 | AT-12           | Två riktiga flikar med revisionskonflikt. Kvotfel och abort injiceras efter en skrivning i riktiga IndexedDB-transaktioner; rollback, sparstatus, bevarad inmatning och återförsök kontrolleras.                                                  |
 | AT-13,20        | Ren profil utan konfiguration, scripttext körs inte, produktions-CSP utan överträdelser, bara egna statiska resurser och inga utgående dataanrop.                                                                                                 |
 | AT-14           | Samma backup i America/Los_Angeles, Pacific/Auckland och Europe/Stockholm; skottdag, sommartidsgräns och exklusivt slutdatum.                                                                                                                     |
-| AT-16–18        | Katalogändring bevarar planteringens snapshot, reversibelt växt-/bäddarkiv, läsbar historik och överlapp som varnar utan att blockera sparning.                                                                                                   |
+| AT-16–18        | Katalogändring bevarar planteringens snapshot, arkivkontroller saknas, äldre arkivdata rensas med vanlig ångerhistorik bevarad och överlapp varnar utan att blockera sparning.                                                                     |
 | AT-19           | Offline-redigering, datumbyte, byte mellan journal/karta och export; data kvar efter återanslutning och omladdning.                                                                                                                               |
 | AT-21           | Riktig version 1→2-uppgradering, avbruten migrations rollback, blockerande äldre flik, versionchange och okänd nyare version utan databasradering.                                                                                                |
 | AT-22,25        | Backup av två trädgårdar, oanvänd växt och inställningar; återställning med bevarade ID:n, separat profil samt separata origins localhost/127.0.0.1. Originalet lämnas oförändrat. Ogiltig/icke-tom återställning provas även i repositorysviten. |
@@ -251,7 +251,7 @@ vid oförändrad eller högre zoom. Webbläsartester täcker både att en liten
 plantering får sitt namn först när utrymme uppstår och att tidigare etiketter
 ligger kvar genom hela inzoomningen. Kartvyn har granskats visuellt med
 överlappande land, gång och plantering.
-96 enhetstester och 42 webbläsartester godkända. Typkontroll, lint och
+100 enhetstester och 43 webbläsartester godkända. Typkontroll, lint och
 produktionsbygge godkända.
 
 ## Drift och övriga avgränsningar

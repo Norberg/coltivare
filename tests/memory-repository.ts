@@ -37,16 +37,23 @@ export class MemoryRepository implements Repository {
       ),
       saved: Change[] = [];
     for (const c of changes) {
-      const before = candidate.get(c.after.id);
+      const target = c.after || c.before;
+      if (!target) throw new DomainError("validation", "Tom ändring");
+      const before = candidate.get(target.id);
       if ((before?.revision || 0) !== (c.before?.revision || 0))
         throw new DomainError("conflict", "Revisionskonflikt");
-      const after = {
-        ...structuredClone(c.after),
-        revision: (before?.revision || 0) + 1,
-        updatedAt: new Date().toISOString(),
-      };
-      candidate.set(after.id, after);
-      saved.push({ before, after });
+      if (c.after) {
+        const after = {
+          ...structuredClone(c.after),
+          revision: (before?.revision || 0) + 1,
+          updatedAt: new Date().toISOString(),
+        };
+        candidate.set(after.id, after);
+        saved.push({ before, after });
+      } else {
+        candidate.delete(target.id);
+        saved.push({ before });
+      }
     }
     validateRecords([...candidate.values()]);
     const history = gardenId ? await this.history(gardenId) : undefined;
@@ -75,16 +82,26 @@ export class MemoryRepository implements Repository {
     const content = (r: RecordData) =>
       JSON.stringify({ ...r, revision: 0, updatedAt: "" });
     for (const c of [...command].reverse()) {
-      const before = candidate.get(c.after.id)!;
-      if (content(before) !== content(c.after))
+      const target = c.after || c.before;
+      if (!target) throw new DomainError("validation", "Tom historikändring");
+      const before = candidate.get(target.id);
+      if (
+        (c.after && (!before || content(before) !== content(c.after))) ||
+        (!c.after && before)
+      )
         throw new DomainError("conflict", "Historikkonflikt");
-      const after = {
-        ...(c.before || { ...before, archived: true }),
-        revision: before.revision + 1,
-        updatedAt: new Date().toISOString(),
-      };
-      candidate.set(after.id, after);
-      inverse.push({ before, after });
+      if (c.before) {
+        const after = {
+          ...structuredClone(c.before),
+          revision: Math.max(before?.revision || 0, c.before.revision) + 1,
+          updatedAt: new Date().toISOString(),
+        };
+        candidate.set(after.id, after);
+        inverse.push({ before, after });
+      } else {
+        candidate.delete(target.id);
+        inverse.push({ before });
+      }
     }
     validateRecords([...candidate.values()]);
     h[direction === "undo" ? "redo" : "undo"].push(inverse);
