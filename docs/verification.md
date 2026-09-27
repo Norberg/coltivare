@@ -235,7 +235,23 @@ en avstängd placering döljer endast den placeringen. Namn och sökbarhet i
 Domän-, formulär- och webbläsartester verifierar typvalidering, standardvärde,
 beständig lagring, omladdning, export och ångra/gör om för alla tre nivåerna.
 
-91 enhetstester och 41 webbläsartester godkända. Typkontroll, lint och
+## Utökning: krockmedvetna kartetiketter
+
+Alla synliga namn går genom en gemensam etikettlayout. Överlappande etiketter
+reduceras till en etikett per krockgrupp, i stället för att ritas ovanpå
+varandra. Textstorleken är samma som före krockhanteringen; etiketter visas
+så länge de inte kolliderar. Växter har högre grundprioritet än land och gångar.
+SVG-titeln innehåller hela namnet för muspekartips när namnvisning är aktiv.
+Vid inzoomning bevaras alla redan synliga etiketter, även efter efterföljande
+React-renderingar. Nya etiketter läggs till när deras yta får plats; utzoomning
+får däremot räkna om layouten och minska mängden text.
+
+Enhetstester täcker krockar, avstånd, lagerprioritet och beständig etikettlayout
+vid oförändrad eller högre zoom. Webbläsartester täcker både att en liten
+plantering får sitt namn först när utrymme uppstår och att tidigare etiketter
+ligger kvar genom hela inzoomningen. Kartvyn har granskats visuellt med
+överlappande land, gång och plantering.
+96 enhetstester och 42 webbläsartester godkända. Typkontroll, lint och
 produktionsbygge godkända.
 
 ## Drift och övriga avgränsningar

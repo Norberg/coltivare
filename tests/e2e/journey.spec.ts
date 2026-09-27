@@ -44,16 +44,17 @@ test("Names can be hidden per bed, placement or whole planting and persist", asy
 }) => {
   await createGarden(page);
   await namedBed(page, "Dold bädd");
-  await expect(page.locator(".structure-shape text")).toHaveText("Dold bädd");
+  await expect(page.locator(".structure-shape title")).toHaveText("Dold bädd");
   await page
     .getByRole("button", { name: "Redigera egenskaper", exact: true })
     .click();
   await page.getByLabel("Visa namn på trädgårdsvyn").uncheck();
   await page.getByRole("button", { name: "Spara", exact: true }).click();
-  await expect(page.locator(".structure-shape text")).toHaveCount(0);
+  await expect(page.locator(".structure-shape title")).toHaveCount(0);
   await createPlant(page, "Lavendel");
   await plant(page, "Lavendel", false);
-  await expect(page.locator(".plant-name")).toContainText("Lavendel");
+  await expect(page.locator(".plant-shape title")).toHaveText("Lavendel");
+  await expect(page.locator(".plant-name")).toHaveCount(0);
   await page
     .getByRole("button", { name: "Redigera egenskaper", exact: true })
     .click();
@@ -69,16 +70,16 @@ test("Names can be hidden per bed, placement or whole planting and persist", asy
   ).toBe(false);
   await page.reload();
   await page.getByLabel("Kartdatum").fill("2027-04-15");
-  await expect(page.locator(".structure-shape text, .plant-name")).toHaveCount(
-    0,
-  );
+  await expect(
+    page.locator(".structure-shape title, .plant-shape title"),
+  ).toHaveCount(0);
   await page.locator(".plant-shape").click();
   await page
     .getByRole("button", { name: "Redigera egenskaper", exact: true })
     .click();
   await page.getByLabel("Visa namn på trädgårdsvyn").check();
   await page.getByRole("button", { name: "Spara", exact: true }).click();
-  await expect(page.locator(".plant-name")).toContainText("Lavendel");
+  await expect(page.locator(".plant-shape title")).toHaveText("Lavendel");
   await page.locator(".plant-shape").click();
   await page
     .getByRole("button", { name: "Redigera plantering och antal" })
@@ -86,9 +87,9 @@ test("Names can be hidden per bed, placement or whole planting and persist", asy
   await expect(page.getByLabel("Visa namn på trädgårdsvyn")).toBeChecked();
   await page.getByLabel("Visa namn på trädgårdsvyn").uncheck();
   await page.getByRole("button", { name: "Spara", exact: true }).click();
-  await expect(page.locator(".plant-name")).toHaveCount(0);
+  await expect(page.locator(".plant-shape title")).toHaveCount(0);
   await page.getByRole("button", { name: "Ångra", exact: true }).click();
-  await expect(page.locator(".plant-name")).toContainText("Lavendel");
+  await expect(page.locator(".plant-shape title")).toHaveText("Lavendel");
 });
 async function draw(page: Page, tool: string, x = 200, y = 150) {
   await page.getByRole("button", { name: tool, exact: true }).click();
@@ -117,7 +118,9 @@ test("New flower icons can be selected, mixed and restored", async ({
   await page
     .getByRole("button", { name: "Spara plantering", exact: true })
     .click();
-  await expect(page.locator(".plant-name")).toContainText("Sommarblandning");
+  await expect(page.locator(".plant-shape title")).toContainText(
+    "Sommarblandning",
+  );
   for (const name of names)
     expect(
       await page.locator(`.mixture-icons svg[aria-label="${name}"]`).count(),
@@ -128,7 +131,9 @@ test("New flower icons can be selected, mixed and restored", async ({
     [planting.snapshot!, ...planting.additionalPlants!].map((p) => p.icon),
   ).toEqual(["lobelia", "calendula", "blueFescue", "sweetWilliam"]);
   await page.reload();
-  await expect(page.locator(".plant-name")).toContainText("Sommarblandning");
+  await expect(page.locator(".plant-shape title")).toContainText(
+    "Sommarblandning",
+  );
   for (const name of names)
     expect(
       await page.locator(`.mixture-icons svg[aria-label="${name}"]`).count(),
@@ -163,7 +168,7 @@ test("A mix can be planted using only checked species, without a dropdown plant"
   await page
     .getByRole("button", { name: "Spara plantering", exact: true })
     .click();
-  await expect(page.locator(".plant-name")).toContainText(
+  await expect(page.locator(".plant-shape title")).toContainText(
     "Blomsteräng utan huvudväxt",
   );
   await expect(page.getByRole("alert")).toHaveCount(0);
@@ -179,7 +184,9 @@ test("A mix can be planted using only checked species, without a dropdown plant"
     snapshot.records.filter((record) => record.kind === "placement"),
   ).toHaveLength(1);
   await page.reload();
-  await expect(page.locator(".plant-name")).toContainText("Blåklint, Lavendel");
+  await expect(page.locator(".plant-shape title")).toContainText(
+    "Blomsteräng utan huvudväxt",
+  );
 });
 
 test("A meadow is one mixed planting with editable species, persistent snapshots and undo", async ({
@@ -214,8 +221,8 @@ test("A meadow is one mixed planting with editable species, persistent snapshots
     .getByRole("button", { name: "Spara plantering", exact: true })
     .click();
   await expect(page.locator(".plant-shape")).toHaveCount(1);
-  await expect(page.locator(".plant-name")).toContainText("Blomsteräng");
-  await expect(page.locator(".plant-name")).toContainText(
+  await expect(page.locator(".plant-shape title")).toContainText("Blomsteräng");
+  await expect(page.locator(".plant-shape title")).toContainText(
     "Lavendel, Blåklint, Krokus",
   );
   await expect(page.locator(".warnings")).toHaveCount(0);
@@ -258,7 +265,7 @@ test("A meadow is one mixed planting with editable species, persistent snapshots
   await expect(page.locator(".plant-shape")).toHaveCount(1);
   await page.reload();
   await page.getByLabel("Kartdatum").fill("2027-04-01");
-  await expect(page.locator(".plant-name")).toContainText("Blomsteräng");
+  await expect(page.locator(".plant-shape title")).toContainText("Blomsteräng");
   expect(
     await icons.evaluateAll((nodes) =>
       nodes.map((node) => ({
@@ -279,10 +286,12 @@ test("A meadow is one mixed planting with editable species, persistent snapshots
     .click();
   await page.getByRole("checkbox", { name: "Krokus", exact: true }).uncheck();
   await page.getByRole("button", { name: "Spara", exact: true }).click();
-  await expect(page.locator(".plant-name")).toContainText("Lavendel, Blåklint");
-  await expect(page.locator(".plant-name")).not.toContainText("Krokus");
+  await expect(page.locator(".plant-shape title")).toContainText(
+    "Lavendel, Blåklint",
+  );
+  await expect(page.locator(".plant-shape title")).not.toContainText("Krokus");
   await page.getByRole("button", { name: "Ångra", exact: true }).click();
-  await expect(page.locator(".plant-name")).toContainText("Krokus");
+  await expect(page.locator(".plant-shape title")).toContainText("Krokus");
   await page.getByRole("link", { name: "Journal", exact: true }).click();
   await page.getByRole("button", { name: "Ny journalhändelse" }).click();
   await page
@@ -650,8 +659,8 @@ test("Plants and names stay above beds; a path can be drawn across a bed", async
       elements.map((e) => e.getAttribute("data-layer")),
     ),
   ).toEqual(["0", "1", "2"]);
-  await expect(page.locator(".plant-name")).toHaveText("Lavendel");
-  await expect(page.locator(".plant-name")).toBeVisible();
+  await page.locator(".plant-shape").hover();
+  await expect(page.locator(".plant-shape title")).toHaveText("Lavendel");
   await expect(page.locator(".map-plant-icon")).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("path-and-plant-label.png"),
@@ -666,7 +675,37 @@ test("Plants and names stay above beds; a path can be drawn across a bed", async
       elements.map((e) => e.getAttribute("data-layer")),
     ),
   ).toEqual(["0", "1", "2"]);
-  await expect(page.locator(".plant-name")).toHaveText("Lavendel");
+  await page.locator(".plant-shape").hover();
+  await expect(page.locator(".plant-shape title")).toHaveText("Lavendel");
+});
+test("Zooming in only adds map labels and reveals labels when space opens", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await draw(page, "Rektangel", 100, 100);
+  await page
+    .getByRole("button", { name: "Redigera egenskaper", exact: true })
+    .click();
+  await page.getByLabel("Namn", { exact: true }).fill("Bädd");
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await createPlant(page, "Lång växttext");
+  await page.getByRole("button", { name: "Plantera", exact: true }).click();
+  await page
+    .getByLabel("Växt att plantera")
+    .selectOption({ label: "Lång växttext" });
+  await page.getByRole("application").click({ position: { x: 500, y: 300 } });
+  await page.getByLabel("Befintlig växt – startdatum okänt").check();
+  await page
+    .getByRole("button", { name: "Spara plantering", exact: true })
+    .click();
+  const before = await page.locator(".map-labels text").allTextContents();
+  expect(before).toContain("Bädd");
+  expect(before).not.toContain("Lång växttext");
+  for (let zoom = 0; zoom < 9; zoom += 1)
+    await page.getByRole("button", { name: "Zooma in" }).click();
+  const after = await page.locator(".map-labels text").allTextContents();
+  expect(after).toContain("Lång växttext");
+  for (const label of before) expect(after).toContain(label);
 });
 test("Select never moves objects; Move drags, saves and supports undo", async ({
   page,
@@ -1346,7 +1385,15 @@ test("AT-10: numeric geometry, bound rotation, zoom and persistent undo", async 
     "transform",
     /rotate\(45\)/,
   );
+  const labelsBeforeZoom = await page
+    .locator(".map-labels text")
+    .allTextContents();
   await page.getByRole("button", { name: "Zooma in" }).click();
+  const labelsAfterZoom = await page
+    .locator(".map-labels text")
+    .allTextContents();
+  for (const label of labelsBeforeZoom)
+    expect(labelsAfterZoom).toContain(label);
   expect(
     (await exported(page)).records.find((r) => r.kind === "placement")!
       .geometry,

@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PlantIcon } from "./PlantIcon";
 import { mixtureLayout } from "./mixtureLayout";
+import {
+  layoutLabels,
+  shouldPreserveLabels,
+  type LabelCandidate,
+} from "./labelLayout";
 import { mapLayer, pathGeometry } from "./mapLayout";
 import { bounds } from "./geometry";
 import { snapMove, type SnapGuide } from "./snapping";
@@ -180,6 +185,118 @@ export function GardenMap(p: Props) {
     ) : (
       <rect fill={color} width={g.width} height={g.height} rx={0.06} />
     );
+  const labelCandidates = useMemo<LabelCandidate[]>(() => {
+    const fontSize = view.w * 0.025;
+    return visible.flatMap((record) => {
+      const geometry = preview(record);
+      // Plants normally sit above beds and paths; selection takes priority.
+      const priority =
+        mapLayer(record) + (record.id === p.selected ? 10 : 0);
+      const hasRoom = (text: string, size: number) =>
+        text.length * size * 0.48 <=
+        Math.max(geometry.width, geometry.height) * 0.85;
+      if (record.kind === "object") {
+        const size = Math.min(0.32, geometry.width / 6);
+        if (record.showName === false || !hasRoom(record.name, size)) return [];
+        const position = transform(
+          { x: geometry.width / 2, y: geometry.height / 2 },
+          geometry,
+        );
+        return [
+          {
+            id: record.id,
+            x: position.x,
+            y: position.y,
+            lines: [`${record.locked ? "🔒 " : ""}${record.name}`],
+            fontSize: size,
+            priority,
+            className: "structure-label",
+          },
+        ];
+      }
+      const planting = byId.get(record.plantingId!);
+      const name = planting?.name || record.name;
+      if (
+        record.showName === false ||
+        planting?.showName === false ||
+        !hasRoom(name, fontSize)
+      )
+        return [];
+      const icon = planting?.icon ?? planting?.snapshot?.icon;
+      const hasIcons = planting?.additionalPlants?.length
+        ? plantingPlants(planting).some(
+            (plant) => plant.icon && plant.icon !== "none",
+          )
+        : !!icon && icon !== "none";
+      const iconSize = Math.min(geometry.width, geometry.height);
+      const labelCenterY = hasIcons
+        ? geometry.height / 2 + iconSize * 0.36
+        : geometry.height / 2;
+      const position = transform(
+        {
+          x: geometry.width / 2,
+          // Labels are centred horizontally and sit just below a plant icon.
+          y: hasIcons ? labelCenterY + fontSize * 0.7 : labelCenterY,
+        },
+        geometry,
+      );
+      return [
+        {
+          id: record.id,
+          x: position.x,
+          y: position.y,
+          // The planting name is the map label; a mixed planting's full
+          // species list remains available in the hover title and panel.
+          lines: [name],
+          fontSize,
+          priority,
+          className: "plant-name",
+        },
+      ];
+    });
+  }, [visible, p.selected, view.w, byId, p.records, draft, gesture]);
+  // A reference token avoids serialising every record on each zoom. Data or
+  // geometry changes create a new token; zooming and panning do not.
+  const labelLayoutVersion = useMemo(
+    () => ({}),
+    [visible, p.selected, draft],
+  );
+  const [labelHistory, setLabelHistory] = useState<{
+    width: number;
+    version?: object;
+    ids: string[];
+  }>({ width: fitWidth, ids: [] });
+  const preserveLabels = shouldPreserveLabels(
+    labelHistory.width,
+    view.w,
+    labelHistory.version === labelLayoutVersion,
+  );
+  const preservedLabelIds = useMemo(
+    () => new Set(labelHistory.ids),
+    [labelHistory.ids],
+  );
+  const labels = useMemo(
+    () =>
+      layoutLabels(
+        labelCandidates,
+        preserveLabels ? preservedLabelIds : undefined,
+      ),
+    [labelCandidates, preserveLabels, preservedLabelIds],
+  );
+  const labelIds = labels.map((label) => label.id).join("|");
+  useLayoutEffect(() => {
+    setLabelHistory((previous) =>
+      previous.width === view.w &&
+      previous.version === labelLayoutVersion &&
+      previous.ids.join("|") === labelIds
+        ? previous
+        : {
+            width: view.w,
+            version: labelLayoutVersion,
+            ids: labels.map((label) => label.id),
+          },
+    );
+  }, [view.w, labelLayoutVersion, labelIds, labels]);
   // Keep SVG nodes stable while panning; only the viewBox needs to change.
   const scene = useMemo(
     () =>
@@ -234,14 +351,16 @@ export function GardenMap(p: Props) {
               }
             }}
           >
-            <title>
-              {r.name}
-              {!!planting?.additionalPlants?.length &&
-                `: ${plantingPlants(planting)
-                  .map((plant) => plant.name)
-                  .join(", ")}`}
-              {r.locked ? " (låst)" : ""}
-            </title>
+            {r.showName !== false && planting?.showName !== false && (
+              <title>
+                {r.name}
+                {!!planting?.additionalPlants?.length &&
+                  `: ${plantingPlants(planting)
+                    .map((plant) => plant.name)
+                    .join(", ")}`}
+                {r.locked ? " (låst)" : ""}
+              </title>
+            )}
             {shape(g, color)}
             {r.kind === "placement" &&
               (!icon || icon === "none") &&
@@ -280,18 +399,6 @@ export function GardenMap(p: Props) {
                 width={Math.min(g.width, g.height) * 0.7}
                 height={Math.min(g.width, g.height) * 0.7}
               />
-            )}
-            {r.kind !== "placement" && r.showName !== false && (
-              <text
-                x={g.width / 2}
-                y={icon && icon !== "none" ? g.height * 0.9 : g.height / 2}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize={Math.min(0.32, g.width / 6)}
-              >
-                {r.locked ? "🔒 " : ""}
-                {r.name}
-              </text>
             )}
             {p.selected === r.id &&
               !r.locked &&
@@ -653,56 +760,29 @@ export function GardenMap(p: Props) {
             />
           ))}
         </g>
-        <g className="plant-labels" pointerEvents="none">
-          {visible
-            .filter(
-              (r) =>
-                r.kind === "placement" &&
-                r.showName !== false &&
-                byId.get(r.plantingId!)?.showName !== false,
-            )
-            .map((r) => {
-              const planting = byId.get(r.plantingId!);
-              const icon = planting?.icon ?? planting?.snapshot?.icon;
-              const hasIcons = planting?.additionalPlants?.length
-                ? plantingPlants(planting).some(
-                    (plant) => plant.icon && plant.icon !== "none",
-                  )
-                : !!icon && icon !== "none";
-              const g = preview(r);
-              const position = transform(
-                {
-                  x: g.width / 2,
-                  y: hasIcons ? g.height : g.height / 2,
-                },
-                g,
-              );
-              return (
-                <text
-                  key={r.id}
-                  className="plant-name"
-                  x={position.x}
-                  y={position.y}
-                  dy={hasIcons ? "1em" : ".35em"}
-                  textAnchor="middle"
-                  fontSize={view.w * 0.025}
+        <g className="map-labels" pointerEvents="none">
+          {labels.map((label) => (
+            <text
+              key={label.id}
+              className={label.className}
+              x={label.x}
+              y={label.y}
+              textAnchor="middle"
+              fontSize={label.fontSize}
+            >
+              {label.lines.map((line, index) => (
+                <tspan
+                  key={line}
+                  x={label.x}
+                  dy={index ? "1.2em" : ".35em"}
+                  fontSize={index ? "65%" : undefined}
+                  stroke={index ? "none" : undefined}
                 >
-                  {planting?.name || r.name}
-                  {!!planting?.additionalPlants?.length && (
-                    <tspan
-                      x={position.x}
-                      dy="1.2em"
-                      fontSize="65%"
-                      stroke="none"
-                    >
-                      {plantingPlants(planting)
-                        .map((plant) => plant.name)
-                        .join(", ")}
-                    </tspan>
-                  )}
-                </text>
-              );
-            })}
+                  {line}
+                </tspan>
+              ))}
+            </text>
+          ))}
         </g>
         {p.placementDraft && !draft && (
           <g

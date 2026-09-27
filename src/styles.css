@@ -381,8 +381,7 @@ small {
   stroke-width: 0.035;
   cursor: pointer;
 }
-.structure-shape text,
-.plant-shape text {
+.map-labels text {
   fill: #294132;
   stroke: none;
   pointer-events: none;
@@ -401,13 +400,8 @@ small {
   stroke-width: 0.04;
   stroke-dasharray: 0.12;
 }
-.plant-name {
+.map-labels text {
   fill: #243c2d;
-  stroke: #fff;
-  stroke-width: 3px;
-  stroke-linejoin: round;
-  paint-order: stroke fill;
-  vector-effect: non-scaling-stroke;
   font-weight: 600;
 }
 .plant-icon-picker {

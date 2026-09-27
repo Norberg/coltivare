@@ -131,6 +131,15 @@ För ytor döljer det bara ytans etikett. För en placering döljer det just den
 placeringen; för en plantering döljer det namnet på alla dess placeringar.
 Inställningen bevaras vid ångra/gör om, omladdning och export/import.
 
+Kartans etiketter är krockmedvetna: när etiketter skulle hamna ovanpå varandra
+visas bara den med högst prioritet. Etiketter visas automatiskt där de inte
+krockar; små planteringar och smala gångar kan i stället visa namn i webbläsarens
+muspekartips. Växter prioriteras över land och gångar. Inställningen att dölja
+namn döljer även muspekartipset. Vid inzoomning ligger redan synliga etiketter
+kvar och fler namn fylls på när utrymme uppstår.
+För blandningar visas bara blandningens namn som eventuell etikett; den fulla
+artlistan finns i muspekartipset och egenskapspanelen.
+
 Under **Redigera egenskaper → Utseende på kartan** väljer du figurfärg.
 Växtregistret och planteringar har dessutom 23 tecknade, lokala SVG-ikoner:
 oregano, lavendel, spenat, blåklint, ros, tulpan, pumpa, zucchini, morot och
