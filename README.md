@@ -126,6 +126,11 @@ eller raderas inte. Ritordningen är alltid land/övrig struktur, sedan gångar,
 sedan växter, oberoende av i vilken ordning posterna skapades. Växtnamn visas
 över figurerna, även när växten har en ikon.
 
+I **Redigera egenskaper** kan du avmarkera **Visa namn på trädgårdsvyn**.
+För ytor döljer det bara ytans etikett. För en placering döljer det just den
+placeringen; för en plantering döljer det namnet på alla dess placeringar.
+Inställningen bevaras vid ångra/gör om, omladdning och export/import.
+
 Under **Redigera egenskaper → Utseende på kartan** väljer du figurfärg.
 Växtregistret och planteringar har dessutom 23 tecknade, lokala SVG-ikoner:
 oregano, lavendel, spenat, blåklint, ros, tulpan, pumpa, zucchini, morot och

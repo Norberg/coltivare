@@ -60,6 +60,34 @@ test.each(["rectangle", "ellipse", "polygon"] as const)(
   },
 );
 
+test("map labels are visible by default and can be hidden persistently", async () => {
+  const record = makeRecord("object", crypto.randomUUID(), {
+    geometry: {
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 1,
+      rotation: 0,
+      shape: "rectangle",
+    },
+  });
+  const save = jest.fn().mockResolvedValue(undefined);
+  render(
+    <RecordForm
+      record={record}
+      records={[]}
+      save={save}
+      cancel={() => {}}
+      onDirty={() => {}}
+    />,
+  );
+  const showName = screen.getByLabelText("Visa namn på trädgårdsvyn");
+  expect(showName).toBeChecked();
+  fireEvent.click(showName);
+  fireEvent.click(screen.getByText("Spara"));
+  expect(save.mock.calls[0][0][0].after.showName).toBe(false);
+});
+
 test("meters use at most two decimals without changing untouched geometry", () => {
   expect(formatMeters(4)).toBe("4");
   expect(formatMeters(1.2)).toBe("1,2");

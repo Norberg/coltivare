@@ -224,6 +224,20 @@ exporterade ögonblicksbilder och laddar om kartan.
 det nya ikonprovet går igenom efter att testet rättats att invänta sparningen.
 Typkontroll, lint och produktionsbygge godkända. Ikonväljaren är visuellt granskad.
 
+## Utökning: valfri namnetikett på kartan
+
+Ytor, enskilda placeringar och hela planteringar har inställningen
+”Visa namn på trädgårdsvyn”. Den är aktiv för befintliga och nya poster om
+fältet saknas. En avstängd plantering döljer alla sina placeringars etiketter;
+en avstängd placering döljer endast den placeringen. Namn och sökbarhet i
+övriga gränssnitt påverkas inte.
+
+Domän-, formulär- och webbläsartester verifierar typvalidering, standardvärde,
+beständig lagring, omladdning, export och ångra/gör om för alla tre nivåerna.
+
+91 enhetstester och 41 webbläsartester godkända. Typkontroll, lint och
+produktionsbygge godkända.
+
 ## Drift och övriga avgränsningar
 
 Ingen publicering har utförts. Hostingens verkliga HTTPS/CSP-headers ska

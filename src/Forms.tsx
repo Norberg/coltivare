@@ -313,6 +313,17 @@ export function RecordForm({
           </label>
         </>
       )}
+      {["object", "placement", "planting"].includes(draft.kind) && (
+        <label>
+          <input
+            type="checkbox"
+            aria-label="Visa namn på trädgårdsvyn"
+            checked={draft.showName !== false}
+            onChange={(e) => edit({ showName: e.target.checked })}
+          />{" "}
+          Visa namn på trädgårdsvyn
+        </label>
+      )}
       {geometry && (
         <>
           <label className="field">

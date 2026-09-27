@@ -38,6 +38,8 @@ export interface RecordData {
   timezone?: string;
   category?: string;
   locked?: boolean;
+  /** Undefined keeps labels visible for backwards compatibility. */
+  showName?: boolean;
   color?: string;
   icon?: PlantIconId | "none";
   startDate?: string;
@@ -363,6 +365,7 @@ export function validateRecords(records: RecordData[]) {
       "timezone",
       "category",
       "locked",
+      "showName",
       "color",
       "icon",
       "startDate",
@@ -399,7 +402,7 @@ export function validateRecords(records: RecordData[]) {
     for (const key of ["unit", "category", "timezone", "lastGardenId"] as const)
       if (r[key] !== undefined && typeof r[key] !== "string")
         fail("Ogiltigt textfält.");
-    for (const key of ["unknownStart", "locked"] as const)
+    for (const key of ["unknownStart", "locked", "showName"] as const)
       if (r[key] !== undefined && typeof r[key] !== "boolean")
         fail("Ogiltigt val.");
     if (r.snapshot && r.kind !== "planting")

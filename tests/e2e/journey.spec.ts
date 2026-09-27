@@ -39,6 +39,57 @@ test("Only rectangles and ellipses can be created and selected in the form", asy
   }
   await expect(page.locator(".structure-shape")).toHaveCount(2);
 });
+test("Names can be hidden per bed, placement or whole planting and persist", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await namedBed(page, "Dold bädd");
+  await expect(page.locator(".structure-shape text")).toHaveText("Dold bädd");
+  await page
+    .getByRole("button", { name: "Redigera egenskaper", exact: true })
+    .click();
+  await page.getByLabel("Visa namn på trädgårdsvyn").uncheck();
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".structure-shape text")).toHaveCount(0);
+  await createPlant(page, "Lavendel");
+  await plant(page, "Lavendel", false);
+  await expect(page.locator(".plant-name")).toContainText("Lavendel");
+  await page
+    .getByRole("button", { name: "Redigera egenskaper", exact: true })
+    .click();
+  await page.getByLabel("Visa namn på trädgårdsvyn").uncheck();
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".plant-name")).toHaveCount(0);
+  const snapshot = await exported(page);
+  expect(
+    snapshot.records.find((record) => record.name === "Dold bädd")?.showName,
+  ).toBe(false);
+  expect(
+    snapshot.records.find((record) => record.kind === "placement")?.showName,
+  ).toBe(false);
+  await page.reload();
+  await page.getByLabel("Kartdatum").fill("2027-04-15");
+  await expect(page.locator(".structure-shape text, .plant-name")).toHaveCount(
+    0,
+  );
+  await page.locator(".plant-shape").click();
+  await page
+    .getByRole("button", { name: "Redigera egenskaper", exact: true })
+    .click();
+  await page.getByLabel("Visa namn på trädgårdsvyn").check();
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".plant-name")).toContainText("Lavendel");
+  await page.locator(".plant-shape").click();
+  await page
+    .getByRole("button", { name: "Redigera plantering och antal" })
+    .click();
+  await expect(page.getByLabel("Visa namn på trädgårdsvyn")).toBeChecked();
+  await page.getByLabel("Visa namn på trädgårdsvyn").uncheck();
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".plant-name")).toHaveCount(0);
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  await expect(page.locator(".plant-name")).toContainText("Lavendel");
+});
 async function draw(page: Page, tool: string, x = 200, y = 150) {
   await page.getByRole("button", { name: tool, exact: true }).click();
   await page

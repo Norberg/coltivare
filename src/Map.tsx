@@ -281,7 +281,7 @@ export function GardenMap(p: Props) {
                 height={Math.min(g.width, g.height) * 0.7}
               />
             )}
-            {r.kind !== "placement" && (
+            {r.kind !== "placement" && r.showName !== false && (
               <text
                 x={g.width / 2}
                 y={icon && icon !== "none" ? g.height * 0.9 : g.height / 2}
@@ -655,7 +655,12 @@ export function GardenMap(p: Props) {
         </g>
         <g className="plant-labels" pointerEvents="none">
           {visible
-            .filter((r) => r.kind === "placement")
+            .filter(
+              (r) =>
+                r.kind === "placement" &&
+                r.showName !== false &&
+                byId.get(r.plantingId!)?.showName !== false,
+            )
             .map((r) => {
               const planting = byId.get(r.plantingId!);
               const icon = planting?.icon ?? planting?.snapshot?.icon;

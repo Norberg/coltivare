@@ -64,6 +64,10 @@ test("optional appearance metadata validates colors and known icons, preserving 
   w.workspaceId = w.id;
   const p = makeRecord("plant", w.id, { name: "Lavendel" });
   expect(() => validateRecords([w, p])).not.toThrow();
+  expect(() => validateRecords([w, { ...p, showName: false }])).not.toThrow();
+  expect(() =>
+    validateRecords([w, { ...p, showName: "no" as never }]),
+  ).toThrow();
   expect(() =>
     validateRecords([w, { ...p, color: "#aabbcc", icon: "lavender" }]),
   ).not.toThrow();
