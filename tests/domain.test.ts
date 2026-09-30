@@ -20,6 +20,42 @@ const rect: Geometry = {
   rotation: 0,
   shape: "rectangle",
 };
+test("plant grids keep one valid plant reference per equally sized cell", () => {
+  const w = makeRecord("workspace", crypto.randomUUID());
+  w.workspaceId = w.id;
+  const garden = makeRecord("garden", w.id, {
+    name: "Trädgård",
+    width: 20,
+    height: 15,
+  });
+  const plant = makeRecord("plant", w.id, { name: "Tomat" });
+  const grid = makeRecord("plantGrid", w.id, {
+    name: "Rutnät",
+    gardenId: garden.id,
+    geometry: { ...rect, width: 4, height: 2 },
+    columns: 4,
+    rows: 2,
+    cellPlantIds: [plant.id, null, null, null, null, null, null, null],
+  });
+  expect(() => validateRecords([w, garden, plant, grid])).not.toThrow();
+  expect(() =>
+    validateRecords([w, garden, plant, { ...grid, cellPlantIds: [plant.id] }]),
+  ).toThrow();
+  expect(() =>
+    validateRecords([w, garden, plant, { ...grid, columns: 0 }]),
+  ).toThrow();
+  expect(() =>
+    validateRecords([
+      w,
+      garden,
+      plant,
+      {
+        ...grid,
+        cellPlantIds: [crypto.randomUUID(), ...grid.cellPlantIds!.slice(1)],
+      },
+    ]),
+  ).toThrow();
+});
 test("mixed planting validates independent species snapshots and rejects malformed mixtures", () => {
   const id = crypto.randomUUID();
   const w = makeRecord("workspace", id, { id });
@@ -72,17 +108,12 @@ test("optional appearance metadata validates colors and known icons, preserving 
     validateRecords([w, { ...p, color: "#aabbcc", icon: "lavender" }]),
   ).not.toThrow();
   expect(() =>
-    validateRecords([
-      w,
-      { ...p, icon: "hyacinth", iconVariant: "apricot" },
-    ]),
+    validateRecords([w, { ...p, icon: "hyacinth", iconVariant: "apricot" }]),
   ).not.toThrow();
   expect(() =>
     validateRecords([w, { ...p, icon: "tulip", iconVariant: "apricot" }]),
   ).toThrow();
-  expect(() =>
-    validateRecords([w, { ...p, iconVariant: "purple" }]),
-  ).toThrow();
+  expect(() => validateRecords([w, { ...p, iconVariant: "purple" }])).toThrow();
   expect(() =>
     validateRecords([w, { ...p, color: "url(https://example.com)" }]),
   ).toThrow();

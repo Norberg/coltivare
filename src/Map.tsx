@@ -29,7 +29,8 @@ export type Tool =
   | "rectangle"
   | "ellipse"
   | "path"
-  | "planting";
+  | "planting"
+  | "plantGrid";
 interface Props {
   garden: RecordData;
   records: RecordData[];
@@ -100,6 +101,7 @@ export function GardenMap(p: Props) {
             r.gardenId === p.garden.id &&
             active(r, p.date) &&
             ((r.kind === "object" && p.structure) ||
+              (r.kind === "plantGrid" && p.plants) ||
               (r.kind === "placement" && p.plants)),
         )
         .sort((a, b) => mapLayer(a) - mapLayer(b)),
@@ -186,11 +188,44 @@ export function GardenMap(p: Props) {
     return visible.flatMap((record) => {
       const geometry = preview(record);
       // Plants normally sit above beds and paths; selection takes priority.
-      const priority =
-        mapLayer(record) + (record.id === p.selected ? 10 : 0);
+      const priority = mapLayer(record) + (record.id === p.selected ? 10 : 0);
       const hasRoom = (text: string, size: number) =>
         text.length * size * 0.48 <=
         Math.max(geometry.width, geometry.height) * 0.85;
+      if (record.kind === "plantGrid") {
+        if (record.showName === false) return [];
+        const cellWidth = geometry.width / record.columns!;
+        const cellHeight = geometry.height / record.rows!;
+        return (record.cellPlantIds || []).flatMap((plantId, index) => {
+          const plant = plantId ? byId.get(plantId) : undefined;
+          if (!plant) return [];
+          const hasIcon = !!plant.icon && plant.icon !== "none";
+          const size = Math.min(fontSize, cellHeight * (hasIcon ? 0.15 : 0.26));
+          if (plant.name.length * size * 0.56 > cellWidth * 0.85) return [];
+          const iconSize = Math.min(cellWidth, cellHeight);
+          const position = transform(
+            {
+              x: ((index % record.columns!) + 0.5) * cellWidth,
+              y:
+                Math.floor(index / record.columns!) * cellHeight +
+                cellHeight / 2 +
+                (hasIcon ? iconSize * 0.36 + size * 0.7 : 0),
+            },
+            geometry,
+          );
+          return [
+            {
+              id: `${record.id}:${index}`,
+              x: position.x,
+              y: position.y,
+              lines: [plant.name],
+              fontSize: size,
+              priority,
+              className: "plant-name",
+            },
+          ];
+        });
+      }
       if (record.kind === "object") {
         const size = Math.min(0.32, geometry.width / 6);
         if (record.showName === false || !hasRoom(record.name, size)) return [];
@@ -253,10 +288,7 @@ export function GardenMap(p: Props) {
   }, [visible, p.selected, view.w, byId, p.records, draft, gesture]);
   // A reference token avoids serialising every record on each zoom. Data or
   // geometry changes create a new token; zooming and panning do not.
-  const labelLayoutVersion = useMemo(
-    () => ({}),
-    [visible, p.selected, draft],
-  );
+  const labelLayoutVersion = useMemo(() => ({}), [visible, p.selected, draft]);
   const [labelHistory, setLabelHistory] = useState<{
     width: number;
     version?: object;
@@ -318,7 +350,7 @@ export function GardenMap(p: Props) {
             key={r.id}
             data-layer={mapLayer(r)}
             transform={`translate(${g.x} ${g.y}) rotate(${g.rotation})`}
-            className={`${r.kind === "placement" ? "plant-shape" : "structure-shape"} ${(p.tool === "move" && multi ? marked.includes(r.id) : p.selected === r.id) ? "selected" : ""}`}
+            className={`${r.kind === "placement" || r.kind === "plantGrid" ? "plant-shape" : "structure-shape"} ${(p.tool === "move" && multi ? marked.includes(r.id) : p.selected === r.id) ? "selected" : ""}`}
             onPointerDown={(e) => {
               if (e.button !== 0 || (p.tool !== "select" && p.tool !== "move"))
                 return;
@@ -350,17 +382,65 @@ export function GardenMap(p: Props) {
               }
             }}
           >
-            {r.showName !== false && planting?.showName !== false && (
-              <title>
-                {r.name}
-                {!!planting?.additionalPlants?.length &&
-                  `: ${plantingPlants(planting)
-                    .map((plant) => plant.name)
-                    .join(", ")}`}
-                {r.locked ? " (låst)" : ""}
-              </title>
+            {r.kind !== "plantGrid" &&
+              r.showName !== false &&
+              planting?.showName !== false && (
+                <title>
+                  {r.name}
+                  {!!planting?.additionalPlants?.length &&
+                    `: ${plantingPlants(planting)
+                      .map((plant) => plant.name)
+                      .join(", ")}`}
+                  {r.locked ? " (låst)" : ""}
+                </title>
+              )}
+            {r.kind === "plantGrid" ? (
+              <>
+                <rect
+                  className="plant-grid-background"
+                  width={g.width}
+                  height={g.height}
+                  rx={0.06}
+                />
+                {r.cellPlantIds?.map((plantId, index) => {
+                  const cellWidth = g.width / r.columns!;
+                  const cellHeight = g.height / r.rows!;
+                  const x = (index % r.columns!) * cellWidth;
+                  const y = Math.floor(index / r.columns!) * cellHeight;
+                  const plant = plantId ? byId.get(plantId) : undefined;
+                  const iconSize = Math.min(cellWidth, cellHeight);
+                  const size = iconSize * 0.7;
+                  return (
+                    <g key={index} data-cell={index + 1}>
+                      <rect
+                        className="plant-grid-cell"
+                        x={x}
+                        y={y}
+                        width={cellWidth}
+                        height={cellHeight}
+                        rx={0.06}
+                      >
+                        {plant && <title>{plant.name}</title>}
+                      </rect>
+                      {plant?.icon && plant.icon !== "none" ? (
+                        <PlantIcon
+                          icon={plant.icon}
+                          variant={plant.iconVariant}
+                          className="map-plant-icon"
+                          x={x + (cellWidth - size) / 2}
+                          y={y + cellHeight / 2 - iconSize * 0.38}
+                          width={size}
+                          height={size}
+                          pointerEvents="none"
+                        />
+                      ) : null}
+                    </g>
+                  );
+                })}
+              </>
+            ) : (
+              shape(g, color)
             )}
-            {shape(g, color)}
             {r.kind === "placement" &&
               (!icon || icon === "none") &&
               !planting?.additionalPlants?.length &&

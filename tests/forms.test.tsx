@@ -5,6 +5,56 @@ import { makeRecord } from "../src/domain";
 import { Field } from "../src/Forms";
 import { formatMeters } from "../src/format";
 
+test("grid dimensions preserve existing cells and each cell can select a plant", async () => {
+  const workspaceId = crypto.randomUUID();
+  const plant = makeRecord("plant", workspaceId, { name: "Tomat" });
+  const grid = makeRecord("plantGrid", workspaceId, {
+    name: "Rutnät",
+    columns: 1,
+    rows: 3,
+    cellPlantIds: [null, plant.id, null],
+    geometry: {
+      x: 0,
+      y: 0,
+      width: 2,
+      height: 3,
+      rotation: 0,
+      shape: "rectangle",
+    },
+  });
+  const save = jest.fn().mockResolvedValue(undefined);
+  render(
+    <RecordForm
+      record={grid}
+      records={[plant]}
+      save={save}
+      cancel={() => {}}
+      onDirty={() => {}}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("Kolumner"), {
+    target: { value: "4" },
+  });
+  fireEvent.change(screen.getByLabelText("Rad 1, kolumn 1"), {
+    target: { value: plant.id },
+  });
+  fireEvent.click(screen.getByText("Spara"));
+  expect(save.mock.calls[0][0][0].after.cellPlantIds).toEqual([
+    plant.id,
+    null,
+    null,
+    null,
+    plant.id,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+  ]);
+});
+
 test.each(["rectangle", "ellipse", "polygon"] as const)(
   "%s geometry offers no new polygons or corner editing and preserves untouched data",
   async (shape) => {
@@ -101,9 +151,7 @@ test("flower icon color variants are selected and saved together", () => {
     />,
   );
   for (const icon of ["Sallat", "Ärtor", "Ruccula", "Bajkal", "Pärlhyacint"])
-    expect(
-      screen.getByRole("button", { name: `Ikon: ${icon}` }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: `Ikon: ${icon}` })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Ikon: Ros" }));
   expect(
     Array.from(
@@ -111,9 +159,7 @@ test("flower icon color variants are selected and saved together", () => {
         .options,
     ).map((option) => option.text),
   ).toEqual(["Rosa", "Röd", "Vit", "Gul", "Aprikos"]);
-  fireEvent.click(
-    screen.getByRole("button", { name: "Ikon: Hyacint" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Ikon: Hyacint" }));
   fireEvent.change(screen.getByLabelText("Färg/variant för växtikon"), {
     target: { value: "apricot" },
   });

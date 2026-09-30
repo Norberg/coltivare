@@ -27,6 +27,16 @@ export function deleteRecordChanges(
         "validation",
         `Växten används i planteringen ${usedBy.name} och kan inte tas bort.`,
       );
+    const usedInGrid = records.find(
+      (candidate) =>
+        candidate.kind === "plantGrid" &&
+        candidate.cellPlantIds?.includes(record.id),
+    );
+    if (usedInGrid)
+      throw new DomainError(
+        "validation",
+        `Växten används i rutnätet ${usedInGrid.name} och kan inte tas bort.`,
+      );
   }
 
   const deleteIds = new Set([record.id]);

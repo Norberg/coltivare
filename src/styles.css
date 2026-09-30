@@ -381,6 +381,30 @@ small {
   stroke-width: 0.035;
   cursor: pointer;
 }
+.plant-grid-background {
+  fill: none;
+  stroke: #37664b;
+  stroke-width: 0.035;
+}
+.plant-shape.selected .plant-grid-background {
+  stroke: #df942c;
+  stroke-width: 0.09;
+}
+.plant-grid-cell {
+  fill: #6b9769;
+  fill-opacity: 0.7;
+  stroke: #37664b;
+  stroke-width: 0.035;
+}
+.plant-grid-fields {
+  margin: 12px 0;
+}
+.plant-grid-cell-fields {
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
 .map-labels text {
   fill: #294132;
   stroke: none;

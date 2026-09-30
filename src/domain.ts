@@ -8,6 +8,7 @@ export type Kind =
   | "workspace"
   | "garden"
   | "object"
+  | "plantGrid"
   | "plant"
   | "planting"
   | "placement"
@@ -65,6 +66,9 @@ export interface RecordData {
   quantity?: number;
   unit?: string;
   lastGardenId?: string;
+  columns?: number;
+  rows?: number;
+  cellPlantIds?: (string | null)[];
 }
 export interface Change {
   before?: RecordData;
@@ -336,6 +340,7 @@ export function validateRecords(records: RecordData[]) {
         "workspace",
         "garden",
         "object",
+        "plantGrid",
         "plant",
         "planting",
         "placement",
@@ -388,6 +393,9 @@ export function validateRecords(records: RecordData[]) {
       "quantity",
       "unit",
       "lastGardenId",
+      "columns",
+      "rows",
+      "cellPlantIds",
     ];
     if (Object.keys(r).some((key) => !allowedKeys.includes(key)))
       fail("Posten innehåller okända fält.");
@@ -423,7 +431,7 @@ export function validateRecords(records: RecordData[]) {
     )
       fail("Ogiltig växtblandning.");
     if (
-      ["garden", "plant", "planting", "object"].includes(r.kind) &&
+      ["garden", "plant", "planting", "object", "plantGrid"].includes(r.kind) &&
       !r.name.trim()
     )
       fail("Namn måste anges.");
@@ -433,7 +441,9 @@ export function validateRecords(records: RecordData[]) {
         fail("Ogiltig referens.");
       return v!;
     };
-    if (["object", "planting", "placement", "event"].includes(r.kind))
+    if (
+      ["object", "plantGrid", "planting", "placement", "event"].includes(r.kind)
+    )
       ref(r.gardenId, "garden");
     if (
       r.kind === "garden" &&
@@ -448,8 +458,31 @@ export function validateRecords(records: RecordData[]) {
         fail("Ogiltigt kalenderdatum.");
     if (r.startDate && r.endDate && r.endDate <= r.startDate)
       fail("Sista dagen får inte ligga före startdatum.");
-    if (r.kind === "object" || r.kind === "placement")
+    if (["object", "plantGrid", "placement"].includes(r.kind))
       validateGeometry(r.geometry!);
+    if (r.kind === "plantGrid") {
+      if (
+        r.geometry?.shape !== "rectangle" ||
+        !Number.isInteger(r.columns) ||
+        !Number.isInteger(r.rows) ||
+        r.columns! < 1 ||
+        r.rows! < 1 ||
+        r.columns! > 20 ||
+        r.rows! > 20 ||
+        !Array.isArray(r.cellPlantIds) ||
+        r.cellPlantIds.length !== r.columns! * r.rows!
+      )
+        fail(
+          "Rutnätet måste ha 1–20 kolumner och rader samt en cell per ruta.",
+        );
+      for (const plantId of r.cellPlantIds!) {
+        if (
+          plantId !== null &&
+          ref(plantId, "plant").workspaceId !== r.workspaceId
+        )
+          fail("Ogiltig växt i rutnätet.");
+      }
+    }
     if (r.kind === "planting") {
       ref(r.plantId, "plant");
       if (!Number.isInteger(r.count) || r.count! < 1)
@@ -664,7 +697,9 @@ export function purgeArchivedState(
   const legacyRecords = inputRecords as LegacyRecord[];
   const removedIds = new Set(
     legacyRecords
-      .filter((record) => record.kind !== "workspace" && record.archived === true)
+      .filter(
+        (record) => record.kind !== "workspace" && record.archived === true,
+      )
       .map((record) => record.id),
   );
   let changed = true;
@@ -675,7 +710,7 @@ export function purgeArchivedState(
       const remove =
         (!!record.gardenId && removedIds.has(record.gardenId)) ||
         (record.kind === "planting" &&
-          (!!record.plantId && removedIds.has(record.plantId) ||
+          ((!!record.plantId && removedIds.has(record.plantId)) ||
             record.additionalPlants?.some((plant) =>
               removedIds.has(plant.id),
             ))) ||
@@ -696,8 +731,7 @@ export function purgeArchivedState(
     .map((record) => {
       const clean = stripArchived(record);
       if (clean.objectId && removedIds.has(clean.objectId)) {
-        if (clean.geometry)
-          clean.geometry = worldGeometry(clean, inputRecords);
+        if (clean.geometry) clean.geometry = worldGeometry(clean, inputRecords);
         delete clean.objectId;
       }
       if (clean.lastGardenId && removedIds.has(clean.lastGardenId))

@@ -1,7 +1,11 @@
 import type { Geometry, Point, RecordData } from "./domain";
 
 export function mapLayer(record: RecordData): number {
-  return record.kind === "placement" ? 2 : record.category === "Gång" ? 1 : 0;
+  return record.kind === "placement" || record.kind === "plantGrid"
+    ? 2
+    : record.category === "Gång"
+      ? 1
+      : 0;
 }
 
 /** A path is a regular, editable structure, centred along the dragged line. */

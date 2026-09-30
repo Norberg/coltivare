@@ -129,14 +129,17 @@ export class IndexedRepository implements Repository {
       const histories: History[] = await historyStore.getAll();
       const hasLegacyArchive =
         all.some((record) => "archived" in record) ||
-        histories.some((history) => JSON.stringify(history).includes('"archived"'));
+        histories.some((history) =>
+          JSON.stringify(history).includes('"archived"'),
+        );
       if (hasLegacyArchive) {
         const cleaned = purgeArchivedState(all, histories);
         validateRecords(cleaned.records);
         await store.clear();
         await historyStore.clear();
         for (const record of cleaned.records) await store.add(record);
-        for (const history of cleaned.histories) await historyStore.add(history);
+        for (const history of cleaned.histories)
+          await historyStore.add(history);
         all = cleaned.records;
       }
       if (!all.length) {
@@ -166,7 +169,10 @@ export class IndexedRepository implements Repository {
       for (const change of changes) {
         const target = change.after || change.before;
         if (!target)
-          throw new DomainError("validation", "En tom ändring kan inte sparas.");
+          throw new DomainError(
+            "validation",
+            "En tom ändring kan inte sparas.",
+          );
         if (
           change.before &&
           change.after &&
@@ -253,7 +259,10 @@ export class IndexedRepository implements Repository {
       for (const c of [...command].reverse()) {
         const target = c.after || c.before;
         if (!target)
-          throw new DomainError("validation", "Historiken innehåller en tom ändring.");
+          throw new DomainError(
+            "validation",
+            "Historiken innehåller en tom ändring.",
+          );
         const current = map.get(target.id);
         // Revisions can advance through undo/redo, but unrelated edits must not be overwritten.
         const content = (r: RecordData) =>
@@ -372,6 +381,10 @@ export class IndexedRepository implements Repository {
                   id: ids.get(plant.id)!,
                   workspaceId: workspace.id,
                 }),
+              );
+            if (result.cellPlantIds)
+              result.cellPlantIds = result.cellPlantIds.map((id) =>
+                id ? ids.get(id)! : null,
               );
             return result;
           });

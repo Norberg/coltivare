@@ -76,11 +76,12 @@ export function App({ repository }: { repository: Repository }) {
   const selectedPlants = [...new Set([plantId, ...(mixed ? mixtureIds : [])])]
     .map((id) => records.find((record) => record.id === id))
     .filter(
-      (record): record is RecordData =>
-        !!record && record.kind === "plant",
+      (record): record is RecordData => !!record && record.kind === "plant",
     );
   const [edgeSnap, setEdgeSnap] = useState(true);
   const [pathWidth, setPathWidth] = useState(0.8);
+  const [gridColumns, setGridColumns] = useState(1);
+  const [gridRows, setGridRows] = useState(3);
   const [placementDraft, setPlacementDraft] = useState<Geometry>();
   const placementHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -94,8 +95,7 @@ export function App({ repository }: { repository: Repository }) {
   const garden =
     records.find(
       (r) =>
-        r.kind === "garden" &&
-        r.id === (gardenId || workspace?.lastGardenId),
+        r.kind === "garden" && r.id === (gardenId || workspace?.lastGardenId),
     ) || records.find((r) => r.kind === "garden");
   const historyGardenId = garden?.id || gardenId || workspace?.lastGardenId;
   const chosen = records.find((r) => r.id === selected);
@@ -275,13 +275,31 @@ export function App({ repository }: { repository: Repository }) {
       setFrom(date);
       return;
     }
-    const record = makeRecord("object", workspace.id, {
-      gardenId: garden.id,
-      name: tool === "path" ? "Ny gång" : "Ny odlingsyta",
-      category: tool === "path" ? "Gång" : "Odlingsland",
-      ...(tool === "path" ? { color: "#d1b899" } : {}),
-      geometry: g,
-    });
+    const record = makeRecord(
+      tool === "plantGrid" ? "plantGrid" : "object",
+      workspace.id,
+      {
+        gardenId: garden.id,
+        name:
+          tool === "plantGrid"
+            ? `Växtrutnät ${gridColumns}×${gridRows}`
+            : tool === "path"
+              ? "Ny gång"
+              : "Ny odlingsyta",
+        ...(tool === "plantGrid"
+          ? {
+              columns: gridColumns,
+              rows: gridRows,
+              cellPlantIds: Array<string | null>(gridColumns * gridRows).fill(
+                null,
+              ),
+            }
+          : {}),
+        category: tool === "path" ? "Gång" : "Odlingsland",
+        ...(tool === "path" ? { color: "#d1b899" } : {}),
+        geometry: g,
+      },
+    );
     try {
       await save([{ after: record }], true);
       setSelected(record.id);
@@ -486,6 +504,7 @@ export function App({ repository }: { repository: Repository }) {
                       ["rectangle", "Rektangel"],
                       ["ellipse", "Ellips"],
                       ["path", "Gång"],
+                      ["plantGrid", "Växtrutnät"],
                       ["planting", "Plantera"],
                     ] as [Tool, string][]
                   ).map(([t, label]) => (
@@ -507,9 +526,7 @@ export function App({ repository }: { repository: Repository }) {
                         if (t !== tool) setSelected(undefined);
                         setTool(t);
                         setPlantingToPlace(undefined);
-                        if (
-                          t === "planting" && chosen?.kind === "plant"
-                        )
+                        if (t === "planting" && chosen?.kind === "plant")
                           setPlantId(chosen.id);
                       }}
                     >
@@ -533,6 +550,50 @@ export function App({ repository }: { repository: Repository }) {
                     <p className="hint">
                       Dra gångens mittlinje genom landet. Gången läggs ovanpå
                       landet utan att dela eller radera det.
+                    </p>
+                  </div>
+                )}
+                {tool === "plantGrid" && (
+                  <div className="plant-picker">
+                    <div className="field-grid">
+                      <label className="field">
+                        Kolumner
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={gridColumns}
+                          onChange={(e) =>
+                            setGridColumns(
+                              Math.max(
+                                1,
+                                Math.min(20, Number(e.target.value) || 1),
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        Rader
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={gridRows}
+                          onChange={(e) =>
+                            setGridRows(
+                              Math.max(
+                                1,
+                                Math.min(20, Number(e.target.value) || 1),
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                    <p className="hint">
+                      Dra upp rutnätet på kartan. Välj sedan växt i varje cell
+                      under Redigera egenskaper.
                     </p>
                   </div>
                 )}
@@ -660,7 +721,9 @@ export function App({ repository }: { repository: Repository }) {
                     .filter(
                       (r) =>
                         (r.gardenId === garden?.id || r.kind === "plant") &&
-                        ["object", "planting", "plant"].includes(r.kind) &&
+                        ["object", "plantGrid", "planting", "plant"].includes(
+                          r.kind,
+                        ) &&
                         [
                           r.name,
                           ...plantingPlants(r).map((plant) => plant.name),
@@ -706,9 +769,11 @@ export function App({ repository }: { repository: Repository }) {
                           <small>
                             {r.kind === "plant"
                               ? "Växtregister"
-                              : r.kind === "planting"
-                                ? `${r.count} planta/plantor`
-                                : r.category}
+                              : r.kind === "plantGrid"
+                                ? `${r.columns}×${r.rows} rutnät`
+                                : r.kind === "planting"
+                                  ? `${r.count} planta/plantor`
+                                  : r.category}
                           </small>
                         </span>
                       </button>
@@ -942,8 +1007,7 @@ export function App({ repository }: { repository: Repository }) {
                         {records
                           .filter(
                             (r) =>
-                              r.kind === "object" &&
-                              r.gardenId === garden?.id,
+                              r.kind === "object" && r.gardenId === garden?.id,
                           )
                           .map((r) => (
                             <option key={r.id} value={r.id}>

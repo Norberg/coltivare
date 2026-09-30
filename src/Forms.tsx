@@ -190,7 +190,10 @@ export function RecordForm({
       }
       await save(
         changes,
-        alsoPlace || ["object", "placement", "planting"].includes(record.kind),
+        alsoPlace ||
+          ["object", "plantGrid", "placement", "planting"].includes(
+            record.kind,
+          ),
       );
       onDirty(false);
       cancel();
@@ -216,6 +219,7 @@ export function RecordForm({
                 garden: "trädgård",
                 plant: "växt",
                 object: "yta",
+                plantGrid: "växtrutnät",
                 event: "händelse",
                 planting: "plantering",
                 placement: "placering",
@@ -367,7 +371,75 @@ export function RecordForm({
           </label>
         </>
       )}
-      {["object", "placement", "planting"].includes(draft.kind) && (
+      {draft.kind === "plantGrid" && (
+        <fieldset className="plant-grid-fields">
+          <legend>Växtrutnät</legend>
+          <div className="field-grid">
+            {(["columns", "rows"] as const).map((key) => (
+              <label className="field" key={key}>
+                {key === "columns" ? "Kolumner" : "Rader"}
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={draft[key]}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    if (!Number.isInteger(next) || next < 1 || next > 20)
+                      return;
+                    const columns = key === "columns" ? next : draft.columns!;
+                    const rows = key === "rows" ? next : draft.rows!;
+                    const cellPlantIds = Array<string | null>(
+                      columns * rows,
+                    ).fill(null);
+                    for (let row = 0; row < Math.min(rows, draft.rows!); row++)
+                      for (
+                        let column = 0;
+                        column < Math.min(columns, draft.columns!);
+                        column++
+                      )
+                        cellPlantIds[row * columns + column] =
+                          draft.cellPlantIds![row * draft.columns! + column];
+                    edit({ columns, rows, cellPlantIds });
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+          <p className="hint">
+            Varje cell får samma bredd och höjd. Dra hela rutnätet för att
+            flytta eller ändra dess storlek.
+          </p>
+          <div className="plant-grid-cell-fields">
+            {draft.cellPlantIds?.map((plantId, index) => (
+              <label className="field" key={index}>
+                Rad {Math.floor(index / draft.columns!) + 1}, kolumn{" "}
+                {(index % draft.columns!) + 1}
+                <select
+                  value={plantId || ""}
+                  onChange={(e) => {
+                    const cellPlantIds = [...draft.cellPlantIds!];
+                    cellPlantIds[index] = e.target.value || null;
+                    edit({ cellPlantIds });
+                  }}
+                >
+                  <option value="">Tom cell</option>
+                  {records
+                    .filter((r) => r.kind === "plant")
+                    .map((plant) => (
+                      <option key={plant.id} value={plant.id}>
+                        {plant.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {["object", "plantGrid", "placement", "planting"].includes(
+        draft.kind,
+      ) && (
         <label>
           <input
             type="checkbox"
@@ -380,30 +452,32 @@ export function RecordForm({
       )}
       {geometry && (
         <>
-          <label className="field">
-            Form
-            <select
-              value={geometry.shape}
-              aria-label="Form"
-              onChange={(e) =>
-                edit({
-                  geometry: {
-                    ...geometry,
-                    shape: e.target.value as typeof geometry.shape,
-                    points: undefined,
-                  },
-                })
-              }
-            >
-              <option value="rectangle">Rektangel</option>
-              <option value="ellipse">Ellips / individ</option>
-              {geometry.shape === "polygon" && (
-                <option value="polygon" disabled>
-                  Äldre polygon
-                </option>
-              )}
-            </select>
-          </label>
+          {draft.kind !== "plantGrid" && (
+            <label className="field">
+              Form
+              <select
+                value={geometry.shape}
+                aria-label="Form"
+                onChange={(e) =>
+                  edit({
+                    geometry: {
+                      ...geometry,
+                      shape: e.target.value as typeof geometry.shape,
+                      points: undefined,
+                    },
+                  })
+                }
+              >
+                <option value="rectangle">Rektangel</option>
+                <option value="ellipse">Ellips / individ</option>
+                {geometry.shape === "polygon" && (
+                  <option value="polygon" disabled>
+                    Äldre polygon
+                  </option>
+                )}
+              </select>
+            </label>
+          )}
           <p className="hint">
             {move
               ? "Ny plats från flyttdatum."
