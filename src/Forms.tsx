@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import { formatMeters } from "./format";
 import { PlantIcon } from "./PlantIcon";
 import { MixturePicker } from "./MixturePicker";
-import { plantIcons, type PlantIconId } from "./plantAppearance";
+import {
+  defaultPlantIconVariant,
+  plantIcons,
+  plantIconVariants,
+  type PlantIconId,
+  type PlantIconVariantId,
+} from "./plantAppearance";
 import {
   addDays,
   categories,
@@ -117,6 +123,13 @@ export function RecordForm({
   const placementPlanting =
     draft.kind === "placement"
       ? records.find((r) => r.id === draft.plantingId)
+      : undefined;
+  const appearanceIcon = draft.icon ?? draft.snapshot?.icon;
+  const appearanceVariant =
+    draft.icon !== undefined ? draft.iconVariant : draft.snapshot?.iconVariant;
+  const appearanceVariants =
+    appearanceIcon && appearanceIcon !== "none"
+      ? plantIconVariants[appearanceIcon]
       : undefined;
   const field = (label: string, key: "name" | "notes") => (
     <Field
@@ -249,7 +262,7 @@ export function RecordForm({
                   aria-pressed={
                     (draft.icon ?? draft.snapshot?.icon ?? "none") === "none"
                   }
-                  onClick={() => edit({ icon: "none" })}
+                  onClick={() => edit({ icon: "none", iconVariant: undefined })}
                 >
                   Ingen ikon
                 </button>
@@ -262,14 +275,53 @@ export function RecordForm({
                       aria-pressed={
                         (draft.icon ?? draft.snapshot?.icon) === icon
                       }
-                      onClick={() => edit({ icon })}
+                      onClick={() =>
+                        edit({
+                          icon,
+                          iconVariant: defaultPlantIconVariant(icon),
+                        })
+                      }
                     >
-                      <PlantIcon icon={icon} aria-hidden="true" />
+                      <PlantIcon
+                        icon={icon}
+                        variant={
+                          appearanceIcon === icon
+                            ? appearanceVariant || defaultPlantIconVariant(icon)
+                            : defaultPlantIconVariant(icon)
+                        }
+                        aria-hidden="true"
+                      />
                       <span>{label}</span>
                     </button>
                   ),
                 )}
               </div>
+              {appearanceVariants && (
+                <label className="field">
+                  Färg/variant
+                  <select
+                    aria-label="Färg/variant för växtikon"
+                    value={
+                      appearanceVariant ||
+                      defaultPlantIconVariant(appearanceIcon as PlantIconId)
+                    }
+                    onChange={(event) =>
+                      edit({
+                        icon: appearanceIcon as PlantIconId,
+                        iconVariant: event.target.value as PlantIconVariantId,
+                      })
+                    }
+                  >
+                    {Object.entries(appearanceVariants).map(
+                      ([variant, label]) => (
+                        <option key={variant} value={variant}>
+                          {label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+              )}
             </>
           )}
         </fieldset>

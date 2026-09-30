@@ -36,8 +36,9 @@ En plantering lagrar en egen kopia av växtposten. Geometri använder meter,
 lokal rotation och vid bindning lokala koordinater relativt strukturen.
 Utbredning är ett kartmått, inte biologisk tillväxt.
 
-Valfria `color` (sexsiffrig hexkod) och `icon` (ett lokalt, validerat ikon-ID
-eller `none`) lagrar kartutseende. Äldre poster utan dessa fält använder
+Valfria `color` (sexsiffrig hexkod), `icon` (ett lokalt, validerat ikon-ID
+eller `none`) och `iconVariant` (en variant som är validerad för vald ikon)
+lagrar kartutseende. Äldre poster utan dessa fält använder
 standardutseendet och behöver ingen datamigrering. Planteringar använder
 egna utseendevärden om sådana finns, annars sin sparade växtsnapshot.
 Placeringens egen färg har högst prioritet. Export och import inkluderar

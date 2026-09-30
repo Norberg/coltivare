@@ -244,6 +244,16 @@ märkas som exempel och får ha tomma odlingsvärden. Importerade eller
 förifyllda faktauppgifter ska ha källa och eventuell regional kontext.
 Bygg ingen funktion som presenterar AI-genererade odlingsråd som verifierade.
 
+### PLANT-05 — Lokala växtikoner och blomvarianter
+
+Växtposter och planteringar ska kunna välja en lokalt tecknad SVG-ikon utan
+extern bildhämtning. Ikonuppsättningen ska omfatta bland annat sallat, ärtor,
+ruccula, bajkal, hyacint och pärlhyacint. Hyacint ska stödja blå och aprikos;
+tulpan rosa, röd, lila, vit, gul och Little Beauty; krokus blå, vit och lila.
+Ros ska stödja rosa, röd, vit, gul och aprikos.
+Vald ikonvariant ska valideras mot ikonen och följa med i planteringens
+ögonblicksbild, blandningar, ångerhistorik samt export och import.
+
 ## 7. Planteringar och placeringar
 
 ### GROW-01 — Individ eller grupp

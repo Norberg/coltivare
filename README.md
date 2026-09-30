@@ -141,15 +141,18 @@ För blandningar visas bara blandningens namn som eventuell etikett; den fulla
 artlistan finns i muspekartipset och egenskapspanelen.
 
 Under **Redigera egenskaper → Utseende på kartan** väljer du figurfärg.
-Växtregistret och planteringar har dessutom 23 tecknade, lokala SVG-ikoner:
+Växtregistret och planteringar har dessutom 28 tecknade, lokala SVG-ikoner:
 oregano, lavendel, spenat, blåklint, ros, tulpan, pumpa, zucchini, morot och
 tomat, mangold, gul lök, röd lök, rosmarin, potatis, ärtor, oleander, pion
-och krokus samt lobelia, ringblomma, aubrietia och borstnejlika.
+och krokus samt lobelia, ringblomma, aubrietia, borstnejlika, sallat, ruccula,
+bajkal, hyacint och pärlhyacint. Tulpan kan vara rosa, röd, lila, vit, gul
+eller Little Beauty; hyacint kan vara blå eller aprikos och krokus blå, vit
+eller lila. Ros kan vara rosa, röd, vit, gul eller aprikos.
 **Ingen ikon** tar bort symbolen. Nya planteringar ärver växtens
 utseende genom sin sparade katalogögonblicksbild. En ändring i registret
 ändrar inte gamla planteringar; välj **Redigera plantering och antal** för
-att ändra deras färg och ikon. En placerings egen figurfärg har företräde
-framför planteringens färg. Färger och ikoner följer med vid export/import.
+att ändra deras färg, ikon och ikonvariant. En placerings egen figurfärg har företräde
+framför planteringens färg. Färger, ikoner och varianter följer med vid export/import.
 
 ## Säkerhetskopiering och flytt mellan enheter
 

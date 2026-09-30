@@ -254,6 +254,26 @@ ligger kvar genom hela inzoomningen. Kartvyn har granskats visuellt med
 100 enhetstester och 43 webbläsartester godkända. Typkontroll, lint och
 produktionsbygge godkända.
 
+## Utökning: växtikoner med blomvarianter
+
+Ikonväljaren innehåller nu även sallat, ruccula, bajkal, hyacint och
+pärlhyacint; den befintliga ärtikonen behålls. Hyacint, ros, tulpan och krokus har
+egna validerade färg-/sortvarianter. Varianten lagras separat från figurens
+bakgrundsfärg och följer med i snapshots, blandningar och portabel export.
+
+Parameteriserade tester kontrollerar att samtliga varianter har skilda lokala
+SVG-teckningar och tillgängliga namn. Domän- och formulärtester täcker giltiga
+och ogiltiga kombinationer samt sparning. Ett webbläsartest täcker arv till en
+plantering, export, egen variant på planteringen och ångra.
+Slutkörningen gav 109 godkända enhetstester och 44 godkända webbläsartester;
+typkontroll, lint och produktionsbygge godkändes också.
+
+Rosen har därefter fått rosa, röd, vit, gul och aprikos som valbara varianter.
+Rucculaikonen är omritad som en tydligare rosett av flikiga blad med markerade
+mittnerver och en liten fyrbladig blomma.
+Efter kompletteringen passerar 110 enhetstester; det riktade webbläsartestet,
+typkontrollen, lint och produktionsbygget passerar också.
+
 ## Drift och övriga avgränsningar
 
 Ingen publicering har utförts. Hostingens verkliga HTTPS/CSP-headers ska

@@ -1,5 +1,8 @@
 import type { Geometry, RecordData } from "./domain";
-import type { PlantIconId } from "./plantAppearance";
+import type {
+  PlantIconId,
+  PlantIconVariantId,
+} from "./plantAppearance";
 import { containsShape } from "./geometry";
 
 /** Stable, separated icon cells in local coordinates; independent of pan/zoom. */
@@ -34,6 +37,7 @@ export function mixtureLayout(geometry: Geometry, plants: RecordData[]) {
     y: number;
     size: number;
     icon: PlantIconId;
+    variant?: PlantIconVariantId;
     plantId: string;
   }[] = [];
   for (let row = 0; row < rows; row++) {
@@ -56,7 +60,14 @@ export function mixtureLayout(geometry: Geometry, plants: RecordData[]) {
       )
         continue;
       const plant = species[(icons.length + row) % species.length];
-      icons.push({ x, y, size, icon: plant.icon, plantId: plant.id });
+      icons.push({
+        x,
+        y,
+        size,
+        icon: plant.icon,
+        variant: plant.iconVariant,
+        plantId: plant.id,
+      });
     }
   }
   return icons;

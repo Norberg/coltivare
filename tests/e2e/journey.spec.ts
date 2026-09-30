@@ -143,6 +143,49 @@ test("New flower icons can be selected, mixed and restored", async ({
     fullPage: true,
   });
 });
+test("Flower icon variants persist in snapshots and can be changed per planting", async ({
+  page,
+}, testInfo) => {
+  await createGarden(page);
+  await page.getByRole("button", { name: "Skapa egen växt" }).click();
+  await page.getByLabel("Namn", { exact: true }).fill("Aprikos hyacint");
+  await page
+    .getByRole("button", { name: "Ikon: Hyacint", exact: true })
+    .click();
+  await page
+    .getByLabel("Färg/variant för växtikon")
+    .selectOption({ label: "Aprikos" });
+  await page.locator(".right-panel").screenshot({
+    path: testInfo.outputPath("new-icon-variants.png"),
+  });
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await plant(page, "Aprikos hyacint");
+  await expect(page.locator(".map-plant-icon")).toHaveAttribute(
+    "aria-label",
+    "Hyacint – Aprikos",
+  );
+  const snapshot = await exported(page);
+  expect(snapshot.records.find((record) => record.kind === "planting")?.snapshot)
+    .toMatchObject({ icon: "hyacinth", iconVariant: "apricot" });
+
+  await page.locator(".plant-shape").click();
+  await page
+    .getByRole("button", { name: "Redigera plantering och antal" })
+    .click();
+  await page
+    .getByLabel("Färg/variant för växtikon")
+    .selectOption({ label: "Blå" });
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(page.locator(".map-plant-icon")).toHaveAttribute(
+    "aria-label",
+    "Hyacint – Blå",
+  );
+  await page.getByRole("button", { name: "Ångra", exact: true }).click();
+  await expect(page.locator(".map-plant-icon")).toHaveAttribute(
+    "aria-label",
+    "Hyacint – Aprikos",
+  );
+});
 
 test("A mix can be planted using only checked species, without a dropdown plant", async ({
   page,
@@ -229,8 +272,11 @@ test("A meadow is one mixed planting with editable species, persistent snapshots
   const icons = page.locator(".mixture-icons .map-plant-icon");
   expect(await icons.count()).toBeGreaterThan(6);
   for (const name of ["Lavendel", "Blåklint", "Krokus"]) {
+    const iconLabel = name === "Krokus" ? "Krokus – Blå" : name;
     expect(
-      await page.locator(`.mixture-icons svg[aria-label="${name}"]`).count(),
+      await page
+        .locator(`.mixture-icons svg[aria-label="${iconLabel}"]`)
+        .count(),
     ).toBeGreaterThan(1);
   }
   const layout = await icons.evaluateAll((nodes) =>
@@ -750,7 +796,7 @@ test("Figure colors and plant icons persist with snapshots and portable export",
   );
   await page.getByRole("button", { name: "Skapa egen växt" }).click();
   await page.getByLabel("Namn", { exact: true }).fill("Lavendel");
-  await expect(page.getByRole("button", { name: /^Ikon: / })).toHaveCount(23);
+  await expect(page.getByRole("button", { name: /^Ikon: / })).toHaveCount(28);
   await page
     .getByRole("button", { name: "Ikon: Lavendel", exact: true })
     .click();
@@ -794,7 +840,7 @@ test("Figure colors and plant icons persist with snapshots and portable export",
   await page.getByRole("button", { name: "Spara", exact: true }).click();
   await expect(page.locator(".map-plant-icon")).toHaveAttribute(
     "aria-label",
-    "Tulpan",
+    "Tulpan – Rosa",
   );
   const snapshot = await exported(page);
   expect(snapshot.records.find((r) => r.kind === "object")?.color).toBe(
@@ -802,6 +848,7 @@ test("Figure colors and plant icons persist with snapshots and portable export",
   );
   expect(snapshot.records.find((r) => r.kind === "planting")).toMatchObject({
     icon: "tulip",
+    iconVariant: "pink",
     snapshot: { icon: "lavender", color: "#bdb0e0" },
   });
   await page.getByRole("link", { name: "Lagring", exact: true }).click();
@@ -815,7 +862,7 @@ test("Figure colors and plant icons persist with snapshots and portable export",
   await page.getByRole("link", { name: "Kartan", exact: true }).click();
   await expect(page.locator(".map-plant-icon")).toHaveAttribute(
     "aria-label",
-    "Tulpan",
+    "Tulpan – Rosa",
   );
   await expect(page.locator(".structure-shape > rect").first()).toHaveAttribute(
     "fill",

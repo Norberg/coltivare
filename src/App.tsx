@@ -687,6 +687,11 @@ export function App({ repository }: { repository: Repository }) {
                                   undefined | "none"
                                 >
                               }
+                              variant={
+                                r.icon !== undefined
+                                  ? r.iconVariant
+                                  : r.snapshot?.iconVariant
+                              }
                             />
                           ) : r.kind === "plant" ? (
                             "♧"

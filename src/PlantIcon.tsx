@@ -1,5 +1,138 @@
 import type { SVGProps } from "react";
-import { plantIcons, type PlantIconId } from "./plantAppearance";
+import {
+  plantIconLabel,
+  type PlantIconId,
+  type PlantIconVariantId,
+} from "./plantAppearance";
+
+function TulipDrawing({ variant = "pink" }: { variant?: PlantIconVariantId }) {
+  const palettes: Record<string, [string, string, string]> = {
+    pink: ["#ec9398", "#a45465", "#f3b4b7"],
+    red: ["#dc554f", "#933a3d", "#ee7770"],
+    purple: ["#9b72bd", "#674888", "#b997d0"],
+    white: ["#f7f4e9", "#9d988c", "#ffffff"],
+    yellow: ["#f2c84f", "#a87929", "#ffe07a"],
+    littleBeauty: ["#d95291", "#873366", "#f27aad"],
+  };
+  const [fill, stroke, light] = palettes[variant] || palettes.pink;
+  return (
+    <>
+      <path d="M32 59L32 30" />
+      <path
+        fill="#77a660"
+        d="M31 55Q10 46 12 29Q26 36 31 55ZM33 56Q37 36 52 30Q51 50 33 56Z"
+      />
+      <path
+        fill={fill}
+        stroke={stroke}
+        d="M17 10L27 18L32 7L38 18L48 10L46 27Q32 44 18 27Z"
+      />
+      <path d="M27 18L30 32M38 18L35 32" stroke={stroke} />
+      {variant === "littleBeauty" && (
+        <path
+          fill="#e7e9f5"
+          stroke="#565994"
+          d="M24 27Q32 20 41 27Q38 36 32 38Q26 35 24 27Z"
+        />
+      )}
+      {variant !== "littleBeauty" && (
+        <path stroke={light} d="M21 15Q25 28 31 34" />
+      )}
+    </>
+  );
+}
+
+function CrocusDrawing({ variant = "purple" }: { variant?: PlantIconVariantId }) {
+  const palettes: Record<string, [string, string, string]> = {
+    blue: ["#7f9ed8", "#4f679f", "#a9bde5"],
+    white: ["#f7f5ec", "#99948c", "#ffffff"],
+    purple: ["#aa8dcb", "#70599a", "#c1a5de"],
+  };
+  const [fill, stroke, light] = palettes[variant] || palettes.purple;
+  return (
+    <>
+      <path
+        fill="#739a60"
+        d="M30 59Q12 47 15 27Q23 45 30 59ZM35 59Q43 36 54 28Q50 52 35 59Z"
+      />
+      <path d="M32 59L32 35" />
+      <path
+        fill={fill}
+        stroke={stroke}
+        d="M31 41Q13 39 14 14Q26 15 31 31Q31 8 39 6Q48 19 38 36Q47 21 53 20Q52 42 31 41Z"
+      />
+      <path
+        fill={light}
+        stroke={stroke}
+        d="M31 41Q21 31 25 12Q35 17 35 34Q40 21 45 18Q48 35 31 41Z"
+      />
+      <path stroke="#e7ae42" strokeWidth="3" d="M32 35L31 23M33 34L37 26" />
+    </>
+  );
+}
+
+function HyacinthDrawing({ variant = "blue" }: { variant?: PlantIconVariantId }) {
+  const apricot = variant === "apricot";
+  const fill = apricot ? "#efa98d" : "#7896d2";
+  const stroke = apricot ? "#b76d61" : "#4f68a0";
+  return (
+    <>
+      <path d="M32 60L32 13" />
+      <path
+        fill="#70975b"
+        d="M30 58Q11 48 15 29Q27 39 30 58ZM35 58Q41 35 53 28Q51 50 35 58Z"
+      />
+      {[
+        [32, 10],
+        [23, 17],
+        [40, 18],
+        [18, 27],
+        [31, 27],
+        [45, 28],
+        [23, 38],
+        [38, 39],
+      ].map(([x, y], index) => (
+        <path
+          key={index}
+          transform={`translate(${x} ${y})`}
+          fill={fill}
+          stroke={stroke}
+          d="M0 0C-8 -7 -12 3 -5 7C-3 14 7 12 7 5C14 -2 5 -9 0 0Z"
+        />
+      ))}
+    </>
+  );
+}
+
+function RoseDrawing({ variant = "pink" }: { variant?: PlantIconVariantId }) {
+  const palettes: Record<string, [string, string, string]> = {
+    pink: ["#df7e94", "#95465d", "#ed9cac"],
+    red: ["#cf4b52", "#84333e", "#e36a70"],
+    white: ["#f7f3e8", "#999184", "#ffffff"],
+    yellow: ["#efc74f", "#a67b2d", "#ffe17a"],
+    apricot: ["#efa078", "#aa6650", "#f6bb95"],
+  };
+  const [fill, stroke, light] = palettes[variant] || palettes.pink;
+  return (
+    <>
+      <path d="M31 58L32 32" />
+      <path
+        fill="#6e9d60"
+        d="M31 49Q13 50 13 36Q29 34 31 49ZM33 53Q36 38 51 40Q51 53 33 53Z"
+      />
+      <path
+        fill={fill}
+        stroke={stroke}
+        d="M17 29C7 19 16 7 26 10C34 1 45 7 45 15C59 17 52 32 45 34C34 45 20 38 17 29Z"
+      />
+      <path
+        fill={light}
+        stroke={stroke}
+        d="M19 23Q20 12 33 14Q46 13 45 26Q41 37 29 33Q19 31 23 22Q29 16 36 21Q42 26 34 28L29 25"
+      />
+    </>
+  );
+}
 
 // Original, local vector illustrations. No fonts, external images or user SVG.
 const drawings: Record<PlantIconId, React.ReactNode> = {
@@ -279,26 +412,7 @@ const drawings: Record<PlantIconId, React.ReactNode> = {
       </g>
     </>
   ),
-  crocus: (
-    <>
-      <path
-        fill="#739a60"
-        d="M30 59Q12 47 15 27Q23 45 30 59ZM35 59Q43 36 54 28Q50 52 35 59Z"
-      />
-      <path d="M32 59L32 35" />
-      <path
-        fill="#aa8dcb"
-        stroke="#70599a"
-        d="M31 41Q13 39 14 14Q26 15 31 31Q31 8 39 6Q48 19 38 36Q47 21 53 20Q52 42 31 41Z"
-      />
-      <path
-        fill="#c1a5de"
-        stroke="#70599a"
-        d="M31 41Q21 31 25 12Q35 17 35 34Q40 21 45 18Q48 35 31 41Z"
-      />
-      <path stroke="#e7ae42" strokeWidth="3" d="M32 35L31 23M33 34L37 26" />
-    </>
-  ),
+  crocus: <CrocusDrawing />,
   oregano: (
     <>
       <path d="M30 55 Q35 35 28 10 M32 39L17 29 M32 29L46 19" />
@@ -345,40 +459,8 @@ const drawings: Record<PlantIconId, React.ReactNode> = {
       <circle cx="32" cy="29" r="7" fill="#4e559f" />
     </>
   ),
-  rose: (
-    <>
-      <path d="M31 58L32 32" />
-      <path
-        fill="#6e9d60"
-        d="M31 49Q13 50 13 36Q29 34 31 49ZM33 53Q36 38 51 40Q51 53 33 53Z"
-      />
-      <path
-        fill="#df7e94"
-        stroke="#95465d"
-        d="M17 29C7 19 16 7 26 10C34 1 45 7 45 15C59 17 52 32 45 34C34 45 20 38 17 29Z"
-      />
-      <path
-        fill="#ed9cac"
-        stroke="#95465d"
-        d="M19 23Q20 12 33 14Q46 13 45 26Q41 37 29 33Q19 31 23 22Q29 16 36 21Q42 26 34 28L29 25"
-      />
-    </>
-  ),
-  tulip: (
-    <>
-      <path d="M32 59L32 30" />
-      <path
-        fill="#77a660"
-        d="M31 55Q10 46 12 29Q26 36 31 55ZM33 56Q37 36 52 30Q51 50 33 56Z"
-      />
-      <path
-        fill="#ec9398"
-        stroke="#a45465"
-        d="M17 10L27 18L32 7L38 18L48 10L46 27Q32 44 18 27Z"
-      />
-      <path d="M27 18L30 32M38 18L35 32" stroke="#a45465" />
-    </>
-  ),
+  rose: <RoseDrawing />,
+  tulip: <TulipDrawing />,
   pumpkin: (
     <>
       <path
@@ -444,19 +526,125 @@ const drawings: Record<PlantIconId, React.ReactNode> = {
       <path d="M17 35Q13 42 20 47" stroke="#f5b19a" strokeWidth="3" />
     </>
   ),
+  lettuce: (
+    <>
+      <path
+        fill="#80ad66"
+        d="M32 58C12 60 3 48 11 37C1 27 10 15 22 20C20 7 34 2 40 15C51 8 61 20 53 31C64 42 51 58 32 58Z"
+      />
+      <path
+        fill="#a8c982"
+        d="M31 52C17 55 10 45 18 37C9 28 21 20 28 28C27 15 40 13 43 25C54 26 52 40 43 41C44 51 36 54 31 52Z"
+      />
+      <path d="M31 54L32 25M31 43L20 35M33 39L43 30" />
+    </>
+  ),
+  arugula: (
+    <>
+      <path
+        fill="#659950"
+        d="M31 59C28 48 22 45 14 41C8 38 9 32 16 32C9 26 12 19 20 22C15 14 21 8 27 15C30 20 31 34 31 59Z"
+      />
+      <path
+        fill="#78a95a"
+        d="M33 59C35 47 41 44 50 39C57 35 54 29 48 30C56 23 51 17 44 21C50 12 42 7 37 15C34 22 33 37 33 59Z"
+      />
+      <path
+        fill="#8bb868"
+        d="M32 57C27 47 18 47 19 39C20 34 25 35 27 32C20 29 22 23 28 24C25 17 29 11 33 17C39 11 42 18 38 25C45 24 46 31 39 34C44 38 41 44 35 43Z"
+      />
+      <path stroke="#406f42" d="M32 60L32 18M31 50L17 38M33 47L50 36M31 38L24 29M33 36L43 27" />
+      <g transform="translate(33 12)" fill="#f8f5e9" stroke="#9a946e">
+        {[0, 90, 180, 270].map((angle) => (
+          <ellipse
+            key={angle}
+            cx="0"
+            cy="-5"
+            rx="3"
+            ry="5"
+            transform={`rotate(${angle})`}
+          />
+        ))}
+        <circle r="2" fill="#d5b34f" stroke="none" />
+      </g>
+    </>
+  ),
+  baikal: (
+    <>
+      <path d="M31 60L32 9M31 51L18 42M33 47L47 37" />
+      <path
+        fill="#70a05f"
+        d="M30 55Q12 56 10 46Q24 41 30 55ZM34 53Q42 40 55 43Q49 54 34 53Z"
+      />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i} transform={`translate(${32 + (i % 2 ? 3 : -3)} ${13 + i * 7})`}>
+          <path
+            fill="#728fd1"
+            stroke="#4b639d"
+            d="M0 0Q8 -7 13 -1Q10 7 1 6Q-4 4 0 0Z"
+          />
+          <path fill="#a8b9e5" stroke="none" d="M4 1L12 0L6 4Z" />
+        </g>
+      ))}
+    </>
+  ),
+  hyacinth: <HyacinthDrawing />,
+  grapeHyacinth: (
+    <>
+      <path d="M32 60L32 15" />
+      <path
+        fill="#729b5b"
+        d="M30 59Q11 49 15 29Q27 40 30 59ZM35 59Q40 36 52 28Q50 51 35 59Z"
+      />
+      {[
+        [32, 12],
+        [26, 18],
+        [38, 19],
+        [23, 26],
+        [33, 27],
+        [42, 28],
+        [27, 35],
+        [37, 36],
+        [32, 44],
+      ].map(([x, y], index) => (
+        <path
+          key={index}
+          fill={index < 3 ? "#829ddd" : "#647fc4"}
+          stroke="#485f9c"
+          d={`M${x - 5} ${y - 4}Q${x} ${y - 9} ${x + 5} ${y - 4}L${x + 3} ${y + 4}Q${x} ${y + 7} ${x - 3} ${y + 4}Z`}
+        />
+      ))}
+    </>
+  ),
 };
 
 export function PlantIcon({
   icon,
+  variant,
   ...props
-}: SVGProps<SVGSVGElement> & { icon: PlantIconId }) {
+}: SVGProps<SVGSVGElement> & {
+  icon: PlantIconId;
+  variant?: PlantIconVariantId;
+}) {
+  const drawing =
+    icon === "tulip" ? (
+      <TulipDrawing variant={variant} />
+    ) : icon === "rose" ? (
+      <RoseDrawing variant={variant} />
+    ) : icon === "crocus" ? (
+      <CrocusDrawing variant={variant} />
+    ) : icon === "hyacinth" ? (
+      <HyacinthDrawing variant={variant} />
+    ) : (
+      drawings[icon]
+    );
   return (
     <svg
       viewBox="0 0 64 64"
       width="32"
       height="32"
       role="img"
-      aria-label={plantIcons[icon]}
+      aria-label={plantIconLabel(icon, variant)}
       {...props}
     >
       <g
@@ -466,7 +654,7 @@ export function PlantIcon({
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        {drawings[icon]}
+        {drawing}
       </g>
     </svg>
   );

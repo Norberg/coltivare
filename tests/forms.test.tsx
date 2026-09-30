@@ -88,6 +88,42 @@ test("map labels are visible by default and can be hidden persistently", async (
   expect(save.mock.calls[0][0][0].after.showName).toBe(false);
 });
 
+test("flower icon color variants are selected and saved together", () => {
+  const record = makeRecord("plant", crypto.randomUUID(), { name: "Hyacint" });
+  const save = jest.fn().mockResolvedValue(undefined);
+  render(
+    <RecordForm
+      record={record}
+      records={[]}
+      save={save}
+      cancel={() => {}}
+      onDirty={() => {}}
+    />,
+  );
+  for (const icon of ["Sallat", "Ärtor", "Ruccula", "Bajkal", "Pärlhyacint"])
+    expect(
+      screen.getByRole("button", { name: `Ikon: ${icon}` }),
+    ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Ikon: Ros" }));
+  expect(
+    Array.from(
+      (screen.getByLabelText("Färg/variant för växtikon") as HTMLSelectElement)
+        .options,
+    ).map((option) => option.text),
+  ).toEqual(["Rosa", "Röd", "Vit", "Gul", "Aprikos"]);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Ikon: Hyacint" }),
+  );
+  fireEvent.change(screen.getByLabelText("Färg/variant för växtikon"), {
+    target: { value: "apricot" },
+  });
+  fireEvent.click(screen.getByText("Spara"));
+  expect(save.mock.calls[0][0][0].after).toMatchObject({
+    icon: "hyacinth",
+    iconVariant: "apricot",
+  });
+});
+
 test("meters use at most two decimals without changing untouched geometry", () => {
   expect(formatMeters(4)).toBe("4");
   expect(formatMeters(1.2)).toBe("1,2");

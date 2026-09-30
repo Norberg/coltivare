@@ -299,7 +299,10 @@ export function GardenMap(p: Props) {
       visible.map((r) => {
         const planting =
           r.kind === "placement" ? byId.get(r.plantingId!) : undefined;
-        const icon = planting?.icon ?? planting?.snapshot?.icon;
+        const iconSource =
+          planting?.icon !== undefined ? planting : planting?.snapshot;
+        const icon = iconSource?.icon;
+        const iconVariant = iconSource?.iconVariant;
         const color =
           r.color ??
           planting?.color ??
@@ -377,6 +380,7 @@ export function GardenMap(p: Props) {
                     className="map-plant-icon"
                     data-plant-id={item.plantId}
                     icon={item.icon}
+                    variant={item.variant}
                     x={item.x}
                     y={item.y}
                     width={item.size}
@@ -388,6 +392,7 @@ export function GardenMap(p: Props) {
             {!mixed && icon && icon !== "none" && (
               <PlantIcon
                 icon={icon}
+                variant={iconVariant}
                 className="map-plant-icon"
                 pointerEvents="none"
                 x={g.width / 2 - Math.min(g.width, g.height) * 0.35}

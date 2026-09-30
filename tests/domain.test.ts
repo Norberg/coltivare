@@ -72,6 +72,18 @@ test("optional appearance metadata validates colors and known icons, preserving 
     validateRecords([w, { ...p, color: "#aabbcc", icon: "lavender" }]),
   ).not.toThrow();
   expect(() =>
+    validateRecords([
+      w,
+      { ...p, icon: "hyacinth", iconVariant: "apricot" },
+    ]),
+  ).not.toThrow();
+  expect(() =>
+    validateRecords([w, { ...p, icon: "tulip", iconVariant: "apricot" }]),
+  ).toThrow();
+  expect(() =>
+    validateRecords([w, { ...p, iconVariant: "purple" }]),
+  ).toThrow();
+  expect(() =>
     validateRecords([w, { ...p, color: "url(https://example.com)" }]),
   ).toThrow();
   expect(() =>
