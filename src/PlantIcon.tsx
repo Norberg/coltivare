@@ -571,21 +571,28 @@ const drawings: Record<PlantIconId, React.ReactNode> = {
   ),
   baikal: (
     <>
-      <path d="M31 60L32 9M31 51L18 42M33 47L47 37" />
       <path
-        fill="#70a05f"
-        d="M30 55Q12 56 10 46Q24 41 30 55ZM34 53Q42 40 55 43Q49 54 34 53Z"
+        fill="#5e9455"
+        d="M29 49Q17 37 12 15Q17 16 21 27Q26 39 32 47ZM36 49Q43 30 53 13Q56 16 51 27Q45 41 39 50Z"
       />
-      {[0, 1, 2, 3, 4].map((i) => (
-        <g key={i} transform={`translate(${32 + (i % 2 ? 3 : -3)} ${13 + i * 7})`}>
-          <path
-            fill="#728fd1"
-            stroke="#4b639d"
-            d="M0 0Q8 -7 13 -1Q10 7 1 6Q-4 4 0 0Z"
-          />
-          <path fill="#a8b9e5" stroke="none" d="M4 1L12 0L6 4Z" />
-        </g>
-      ))}
+      <path
+        fill="#77aa62"
+        d="M31 49Q24 30 27 5Q29 2 31 8Q32 25 35 48ZM35 49Q36 22 44 6Q47 3 45 12Q41 31 39 50Z"
+      />
+      <path
+        fill="#8ab96c"
+        d="M30 49Q20 29 21 10Q24 9 25 19Q27 33 34 48ZM38 50Q47 37 48 23Q51 22 50 31Q47 44 41 51Z"
+      />
+      <path
+        fill="#f0ead6"
+        stroke="#a79a75"
+        d="M29 45Q25 48 26 53Q27 59 33 59Q40 59 41 53Q41 48 36 45Z"
+      />
+      <path
+        stroke="#c8bc95"
+        d="M32 47Q29 53 32 58M36 47Q39 53 36 58"
+      />
+      <path stroke="#a79a75" d="M30 59L27 63M34 59L34 64M38 59L41 63" />
     </>
   ),
   hyacinth: <HyacinthDrawing />,
