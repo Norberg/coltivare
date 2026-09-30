@@ -209,7 +209,7 @@ export function GardenMap(p: Props) {
               y:
                 Math.floor(index / record.columns!) * cellHeight +
                 cellHeight / 2 +
-                (hasIcon ? iconSize * 0.36 + size * 0.7 : 0),
+                (hasIcon ? iconSize * 0.36 - size * 0.05 : 0),
             },
             geometry,
           );

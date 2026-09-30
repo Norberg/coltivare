@@ -24,8 +24,8 @@ test("grid hover shows only plant names and map labels obey cell space", () => {
     geometry: {
       x: 1,
       y: 1,
-      width: 4,
-      height: 2,
+      width: 2,
+      height: 1,
       rotation: 0,
       shape: "rectangle",
     },
@@ -70,10 +70,20 @@ test("grid hover shows only plant names and map labels obey cell space", () => {
   )!;
   const label = view.container.querySelector(".map-labels text")!;
   expect(cell).toHaveAttribute("rx", "0.06");
-  expect(Number(icon.getAttribute("x"))).toBeCloseTo(0.3);
+  expect(Number(icon.getAttribute("x"))).toBeCloseTo(0.15);
   expect(
     Number(icon.getAttribute("y")) + Number(icon.getAttribute("height")),
   ).toBeLessThan(Number(label.getAttribute("y")) - grid.geometry!.y);
+  expect(
+    Number(label.getAttribute("y")) -
+      grid.geometry!.y -
+      Number(icon.getAttribute("y")) -
+      Number(icon.getAttribute("height")),
+  ).toBeLessThan(0.05);
+  expect(
+    Number(label.getAttribute("y")) +
+      Number(label.getAttribute("font-size")) * 0.2,
+  ).toBeLessThan(grid.geometry!.y + 0.95);
 });
 
 test("a moved shape keeps its preview while persistence is pending", async () => {
