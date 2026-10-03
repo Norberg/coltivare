@@ -216,6 +216,9 @@ stället en varning om den inkonsekventa historiken.
 Det ska gå att skapa, söka och redigera egna växtposter.
 Växtnamn är obligatoriskt. Alla odlingsuppgifter utöver namn ska kunna lämnas
 tomma. Växter som saknas i en medföljande katalog får aldrig vara blockerade.
+En standardväxt per lokal ikon skapas en gång i nya arbetsytor. Befintliga
+trädgårdar och växter får inte skrivas om automatiskt vid läsning.
+Standardväxter och egna växter ska kunna urskiljas i växtvalet.
 
 ### PLANT-02 — Fält
 

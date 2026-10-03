@@ -1,4 +1,5 @@
 import { openDB, type IDBPDatabase } from "idb";
+import { isSeedOnlyWorkspace, seedDefaultPlants } from "./defaultPlants";
 import {
   DomainError,
   makeRecord,
@@ -151,6 +152,12 @@ export class IndexedRepository implements Repository {
         });
         await store.add(workspace);
         all = [workspace];
+      }
+      const defaults = seedDefaultPlants(all);
+      if (defaults.changed.length) {
+        validateRecords(defaults.records);
+        for (const record of defaults.changed) await store.put(record);
+        all = defaults.records;
       }
       await tx.done;
       return all;
@@ -336,7 +343,13 @@ export class IndexedRepository implements Repository {
         all: RecordData[] = await store.getAll();
       let records = snapshot.records;
       if (snapshot.exportKind === "workspace") {
-        if (all.some((r) => r.kind !== "workspace"))
+        if (
+          all.some((r) => r.kind !== "workspace") &&
+          !(
+            isSeedOnlyWorkspace(all) &&
+            (await tx.objectStore("history").count()) === 0
+          )
+        )
           throw new DomainError(
             "validation",
             "Återställning kräver en tom arbetsyta. Importera en trädgård som kopia i stället.",
@@ -345,14 +358,33 @@ export class IndexedRepository implements Repository {
         await tx.objectStore("history").clear();
       } else {
         const workspace = all.find((r) => r.kind === "workspace")!;
+        const defaults = new Map(
+          all
+            .filter((r) => r.kind === "plant" && r.defaultPlantKey)
+            .map((r) => [r.defaultPlantKey!, r.id]),
+        );
         const ids = new Map(
           records.map((r) => [
             r.id,
-            r.kind === "workspace" ? workspace.id : crypto.randomUUID(),
+            r.kind === "workspace"
+              ? workspace.id
+              : r.kind === "plant" &&
+                  r.defaultPlantKey &&
+                  defaults.has(r.defaultPlantKey)
+                ? defaults.get(r.defaultPlantKey)!
+                : crypto.randomUUID(),
           ]),
         );
         records = records
-          .filter((r) => r.kind !== "workspace")
+          .filter(
+            (r) =>
+              r.kind !== "workspace" &&
+              !(
+                r.kind === "plant" &&
+                r.defaultPlantKey &&
+                defaults.has(r.defaultPlantKey)
+              ),
+          )
           .map((r) => {
             const result = {
               ...r,

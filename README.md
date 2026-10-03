@@ -148,6 +148,10 @@ och krokus samt lobelia, ringblomma, aubrietia, borstnejlika, sallat, ruccula,
 bajkal, hyacint och pärlhyacint. Tulpan kan vara rosa, röd, lila, vit, gul
 eller Little Beauty; hyacint kan vara blå eller aprikos och krokus blå, vit
 eller lila. Ros kan vara rosa, röd, vit, gul eller aprikos.
+I en ny arbetsyta skapas en **standardväxt per ikon** med namn och ikon,
+men utan påhittade odlingsvärden. Växtvalen delar upp **Standardväxter** och
+**Egna växter**; egna sorter kan läggas till även när en standardväxt finns.
+Befintliga trädgårdar och växtposter ändras inte automatiskt vid öppning.
 **Ingen ikon** tar bort symbolen. Nya planteringar ärver växtens
 utseende genom sin sparade katalogögonblicksbild. En ändring i registret
 ändrar inte gamla planteringar; välj **Redigera plantering och antal** för

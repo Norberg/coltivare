@@ -32,6 +32,7 @@ import { Field, RecordForm } from "./Forms";
 import { formatMeters } from "./format";
 import { PlantIcon } from "./PlantIcon";
 import { MixturePicker } from "./MixturePicker";
+import { PlantSelectOptions } from "./PlantOptions";
 import { deleteRecordChanges } from "./deleteRecord";
 
 export function App({ repository }: { repository: Repository }) {
@@ -612,13 +613,7 @@ export function App({ repository }: { repository: Repository }) {
                         }}
                       >
                         <option value="">Välj en växt</option>
-                        {records
-                          .filter((r) => r.kind === "plant")
-                          .map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
+                        <PlantSelectOptions records={records} />
                       </select>
                     </label>
                     {!plantingToPlace && (
@@ -732,6 +727,18 @@ export function App({ repository }: { repository: Repository }) {
                           .toLocaleLowerCase()
                           .includes(search.toLocaleLowerCase()),
                     )
+                    .sort((a, b) => {
+                      const order = (record: RecordData) =>
+                        record.kind === "plant"
+                          ? record.defaultPlantKey
+                            ? 2
+                            : 1
+                          : 0;
+                      return (
+                        order(a) - order(b) ||
+                        a.name.localeCompare(b.name, "sv")
+                      );
+                    })
                     .map((r) => (
                       <button
                         key={r.id}
@@ -768,7 +775,9 @@ export function App({ repository }: { repository: Repository }) {
                           {r.name}
                           <small>
                             {r.kind === "plant"
-                              ? "Växtregister"
+                              ? r.defaultPlantKey
+                                ? "Standardväxt"
+                                : "Egen växt"
                               : r.kind === "plantGrid"
                                 ? `${r.columns}×${r.rows} rutnät`
                                 : r.kind === "planting"
@@ -972,8 +981,8 @@ export function App({ repository }: { repository: Repository }) {
                       selectedPlants.length === 0 &&
                       !plantingToPlace && (
                         <p role="alert">
-                          Välj en växt under Plantera. Om växtregistret är tomt,
-                          avbryt och välj Skapa egen växt först.
+                          Välj en standardväxt eller egen växt under Plantera.
+                          Saknas växten, avbryt och välj Skapa egen växt först.
                         </p>
                       )}
                     <Field
@@ -1039,6 +1048,11 @@ export function App({ repository }: { repository: Repository }) {
                   <>
                     <span className="eyebrow">VALT OBJEKT</span>
                     <h2>{chosen.name}</h2>
+                    {chosen.kind === "plant" && (
+                      <p className="hint">
+                        {chosen.defaultPlantKey ? "Standardväxt" : "Egen växt"}
+                      </p>
+                    )}
                     <p>{chosen.notes || "Inga anteckningar ännu."}</p>
                     {chosen.geometry && (
                       <p>
@@ -1331,13 +1345,7 @@ function Journal({
           Växt
           <select value={plant} onChange={(e) => setPlant(e.target.value)}>
             <option value="">Alla växter</option>
-            {records
-              .filter((r) => r.kind === "plant")
-              .map((r) => (
-                <option value={r.id} key={r.id}>
-                  {r.name}
-                </option>
-              ))}
+            <PlantSelectOptions records={records} />
           </select>
         </label>
         <label>

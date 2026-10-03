@@ -1,6 +1,7 @@
 import { openDB } from "idb";
 import { IndexedRepository, type Repository } from "../src/repository";
 import { makeRecord, type RecordData } from "../src/domain";
+import { plantIcons } from "../src/plantAppearance";
 let repo: Repository;
 beforeEach(() => {
   repo = new IndexedRepository(crypto.randomUUID());
@@ -187,6 +188,9 @@ test("garden import remaps relationships and includes unused plants", async () =
   expect(
     all.filter((r) => r.kind === "plant" && r.name === "Oanvänd"),
   ).toHaveLength(2);
+  expect(
+    all.filter((r) => r.kind === "plant" && r.defaultPlantKey),
+  ).toHaveLength(Object.keys(plantIcons).length);
   const copy = all.find((r) => r.kind === "garden" && r.id !== g.id)!;
   const copiedPlacement = all.find(
     (r) => r.kind === "placement" && r.gardenId === copy.id,
@@ -259,7 +263,13 @@ test("schema 1 upgrade retains records and adds history without deletion", async
   await db.put("records", w);
   db.close();
   const upgraded = new IndexedRepository(name);
-  expect(await upgraded.list()).toEqual([w]);
+  const upgradedRecords = await upgraded.list();
+  expect(upgradedRecords.find((record) => record.id === w.id)?.name).toBe(
+    w.name,
+  );
+  expect(
+    upgradedRecords.filter((record) => record.defaultPlantKey),
+  ).toHaveLength(Object.keys(plantIcons).length);
   expect((await upgraded.history("test")).undo).toEqual([]);
   await upgraded.close();
 });

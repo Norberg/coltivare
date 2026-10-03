@@ -48,6 +48,8 @@ export interface RecordData {
   color?: string;
   icon?: PlantIconId | "none";
   iconVariant?: PlantIconVariantId;
+  /** Stable identity for a built-in catalogue plant; absent for user plants. */
+  defaultPlantKey?: PlantIconId;
   startDate?: string;
   endDate?: string;
   unknownStart?: boolean;
@@ -329,6 +331,7 @@ export function validateRecords(records: RecordData[]) {
   };
   if (records.filter((r) => r.kind === "workspace").length !== 1)
     fail("En lokal arbetsyta måste ha exakt en arbetsytepost.");
+  const defaultKeys = new Set<PlantIconId>();
   for (const r of records) {
     if (
       !r ||
@@ -376,6 +379,7 @@ export function validateRecords(records: RecordData[]) {
       "color",
       "icon",
       "iconVariant",
+      "defaultPlantKey",
       "startDate",
       "endDate",
       "unknownStart",
@@ -417,6 +421,18 @@ export function validateRecords(records: RecordData[]) {
         !plantIconVariants[r.icon]?.[r.iconVariant])
     )
       fail("Okänd variant för växtikonen.");
+    if (
+      r.defaultPlantKey !== undefined &&
+      (r.kind !== "plant" ||
+        typeof r.defaultPlantKey !== "string" ||
+        !Object.hasOwn(plantIcons, r.defaultPlantKey))
+    )
+      fail("Ogiltig standardväxt.");
+    if (r.defaultPlantKey) {
+      if (defaultKeys.has(r.defaultPlantKey))
+        fail("Det får bara finnas en standardväxt per ikon.");
+      defaultKeys.add(r.defaultPlantKey);
+    }
     for (const key of ["unit", "category", "timezone", "lastGardenId"] as const)
       if (r[key] !== undefined && typeof r[key] !== "string")
         fail("Ogiltigt textfält.");

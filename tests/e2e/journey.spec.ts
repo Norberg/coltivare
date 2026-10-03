@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { browserArguments } from "../browser-options";
 import type { Snapshot } from "../../src/domain";
+import { plantIcons } from "../../src/plantAppearance";
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date("2027-04-01T12:00:00Z"));
 });
@@ -16,6 +17,28 @@ async function createGarden(page: Page) {
     page.getByRole("heading", { name: "Min trädgård", exact: true, level: 1 }),
   ).toBeVisible();
 }
+test("Standardväxter och egna växter visas var för sig när en växt väljs", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await page.getByRole("button", { name: "Plantera", exact: true }).click();
+  const choices = page.getByLabel("Växt att plantera");
+  await expect(
+    choices.locator('optgroup[label="Standardväxter"] option'),
+  ).toHaveCount(Object.keys(plantIcons).length);
+  await page.getByRole("button", { name: "Skapa egen växt" }).click();
+  await page.getByLabel("Namn", { exact: true }).fill("Tomat Roma");
+  await page.getByRole("button", { name: "Spara", exact: true }).click();
+  await expect(
+    choices.locator('optgroup[label="Egna växter"] option'),
+  ).toHaveText(["Tomat Roma"]);
+  await choices.selectOption({ label: "Tomat Roma" });
+  await expect(choices).toHaveValue(
+    (await exported(page)).records.find(
+      (record) => record.kind === "plant" && record.name === "Tomat Roma",
+    )!.id,
+  );
+});
 test("Only rectangles and ellipses can be created and selected in the form", async ({
   page,
 }) => {
@@ -376,6 +399,13 @@ async function namedBed(page: Page, name: string) {
   await page.getByRole("button", { name: "Spara", exact: true }).click();
 }
 async function createPlant(page: Page, name = "Morot, test A", icon?: string) {
+  if (
+    (!icon || icon === name) &&
+    Object.values(plantIcons).includes(
+      name as (typeof plantIcons)[keyof typeof plantIcons],
+    )
+  )
+    return;
   await page.getByRole("button", { name: "Skapa egen växt" }).click();
   await page.getByLabel("Namn", { exact: true }).fill(name);
   if (icon)
@@ -671,13 +701,6 @@ test("Plants and names stay above beds; a path can be drawn across a bed", async
 }, testInfo) => {
   await createGarden(page);
   await createPlant(page, "Lavendel");
-  await page
-    .getByRole("button", { name: "Redigera egenskaper", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Ikon: Lavendel", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Spara", exact: true }).click();
   await plant(page, "Lavendel", true);
   await draw(page, "Rektangel");
   const before = (await exported(page)).records.find(
@@ -795,7 +818,7 @@ test("Figure colors and plant icons persist with snapshots and portable export",
     "#e9ad65",
   );
   await page.getByRole("button", { name: "Skapa egen växt" }).click();
-  await page.getByLabel("Namn", { exact: true }).fill("Lavendel");
+  await page.getByLabel("Namn", { exact: true }).fill("Min lavendel");
   await expect(page.getByRole("button", { name: /^Ikon: / })).toHaveCount(28);
   await page
     .getByRole("button", { name: "Ikon: Lavendel", exact: true })
@@ -805,7 +828,7 @@ test("Figure colors and plant icons persist with snapshots and portable export",
     .getByRole("group", { name: "Växtikon", exact: true })
     .screenshot({ path: testInfo.outputPath("plant-icons.png") });
   await page.getByRole("button", { name: "Spara", exact: true }).click();
-  await plant(page, "Lavendel", true);
+  await plant(page, "Min lavendel", true);
   await expect(page.locator(".plant-shape > rect").first()).toHaveAttribute(
     "fill",
     "#bdb0e0",
@@ -821,7 +844,8 @@ test("Figure colors and plant icons persist with snapshots and portable export",
   );
   await page
     .locator(".object-list button")
-    .filter({ hasText: "Växtregister" })
+    .filter({ hasText: "Min lavendel" })
+    .filter({ hasText: "Egen växt" })
     .click();
   await page
     .getByRole("button", { name: "Redigera egenskaper", exact: true })
@@ -975,7 +999,7 @@ test("Planting without a chosen plant explains what is missing and keeps the are
   await draw(page, "Plantera");
   await expect(page.getByLabel("Osparad plantering")).toBeVisible();
   await expect(page.getByRole("alert")).toContainText(
-    "Välj en växt under Plantera",
+    "Välj en standardväxt eller egen växt under Plantera",
   );
   await page.getByRole("button", { name: "Avbryt", exact: true }).click();
   await expect(page.getByLabel("Osparad plantering")).toHaveCount(0);
@@ -1479,7 +1503,8 @@ test("AT-16–18: catalogue snapshots, no archive controls and overlap warning",
   await plant(page, "Morot, test A", false, { bound: "Bädd A" });
   await page
     .locator(".object-list button")
-    .filter({ hasText: "Växtregister" })
+    .filter({ hasText: "Morot, test A" })
+    .filter({ hasText: "Egen växt" })
     .click();
   await page
     .getByRole("button", { name: "Redigera egenskaper", exact: true })

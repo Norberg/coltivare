@@ -7,3 +7,4 @@ coverage/
 .pnpm-store/
 .browsers/
 .cache/
+odlingskartan-*.json

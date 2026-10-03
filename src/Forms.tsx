@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatMeters } from "./format";
 import { PlantIcon } from "./PlantIcon";
+import { PlantSelectOptions } from "./PlantOptions";
 import { MixturePicker } from "./MixturePicker";
 import {
   defaultPlantIconVariant,
@@ -226,6 +227,11 @@ export function RecordForm({
                 workspace: "arbetsyta",
               }[record.kind]}
       </h3>
+      {draft.kind === "plant" && (
+        <p className="hint">
+          {draft.defaultPlantKey ? "Standardväxt" : "Egen växt"}
+        </p>
+      )}
       {field("Namn", "name")}
       {["object", "placement", "plant", "planting"].includes(draft.kind) && (
         <fieldset className="appearance-fields">
@@ -424,13 +430,7 @@ export function RecordForm({
                   }}
                 >
                   <option value="">Tom cell</option>
-                  {records
-                    .filter((r) => r.kind === "plant")
-                    .map((plant) => (
-                      <option key={plant.id} value={plant.id}>
-                        {plant.name}
-                      </option>
-                    ))}
+                  <PlantSelectOptions records={records} />
                 </select>
               </label>
             ))}

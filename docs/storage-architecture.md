@@ -43,6 +43,13 @@ standardutseendet och behöver ingen datamigrering. Planteringar använder
 egna utseendevärden om sådana finns, annars sin sparade växtsnapshot.
 Placeringens egen färg har högst prioritet. Export och import inkluderar
 utseendet, även i snapshots; själva SVG-teckningarna är statisk appkod.
+Varje ikon får en standardväxt när en tom arbetsyta först skapas. En
+versionsmarkör i arbetsytans `fields` gör initieringen engångsbaserad.
+`defaultPlantKey` skiljer standardväxter från egna växter och överlever
+export/import. Befintliga trädgårdar och växter klassificeras inte om vid
+läsning. Initieringen och markören skrivs atomiskt. Trädgårdsimport återanvänder
+befintliga standardväxter med samma nyckel. En orörd arbetsyta med enbart
+nyinstallerade standardväxter kan fortfarande ersättas av en full backup.
 
 ## Transaktioner
 
