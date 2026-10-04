@@ -251,7 +251,8 @@ Bygg ingen funktion som presenterar AI-genererade odlingsråd som verifierade.
 
 Växtposter och planteringar ska kunna välja en lokalt tecknad SVG-ikon utan
 extern bildhämtning. Ikonuppsättningen ska omfatta bland annat sallat, ärtor,
-ruccula, bajkal, hyacint och pärlhyacint. Hyacint ska stödja blå och aprikos;
+ruccula, bajkal, hyacint, pärlhyacint, hallonbuske och blåbärsbuske.
+Hyacint ska stödja blå och aprikos;
 tulpan rosa, röd, lila, vit, gul och Little Beauty; krokus blå, vit och lila.
 Ros ska stödja rosa, röd, vit, gul och aprikos.
 Vald ikonvariant ska valideras mot ikonen och följa med i planteringens
@@ -470,8 +471,9 @@ Utöver trädgårdsexport ska ”Säkerhetskopiera allt” spara samtliga
 trädgårdar, oanvända egna växtposter och beständiga
 inställningar. En backup ska kunna återställas i en tom lokal arbetsyta med
 bevarade ID:n och relationer. För P0 ska återställning till en icke-tom
-arbetsyta avvisas med tydlig förklaring; bygg ingen tyst ersättning eller
-automatisk sammanslagning.
+arbetsyta avvisas som standard. Explicit ersättning får ske först efter ett
+separat val och en tydlig bekräftelse; ingen tyst ersättning eller automatisk
+sammanslagning.
 
 Detta är ett annat flöde än ”Importera trädgård som kopia”, som skapar nya
 ID:n. Skilj exporttyperna med `exportKind`. Båda flödena ska ha validering,
@@ -756,7 +758,7 @@ odlingsråd. Testmiljön ska kunna styra vilket datum som räknas som idag.
 | AT-19 | Ladda appen och koppla bort nätverket. Skapa/redigera en plantering, byt datum och vy samt exportera lokalt. Query-operationer får inte pausas av offline-status. Återanslut och ladda om; ändringarna finns kvar. Offline-omladdning av programfiler ingår inte i detta P0-test. |
 | AT-20 | Starta från ren profil utan backend, API-nycklar eller Supabase-konfiguration. Hela etapp 1 fungerar. Inspektera nätverkstrafiken i produktionsbygget: egna statiska filer är tillåtna, men inga odlingsdata skickas och inga Supabase-anrop sker. |
 | AT-21 | Uppgradera en testdatabas med tidigare schema och kända data. ID:n, geometri, datum och relationer bevaras. Misslyckad migration lämnar tidigare data intakt. Testa blockerande gammal flik och okänd nyare version utan automatisk databasradering. |
-| AT-22 | Exportera hela arbetsytan med två trädgårdar, en oanvänd växtpost och inställningar. Återställ i tom profil. Alla poster, ID:n och relationer bevaras. Ogiltig backup eller återställning i icke-tom arbetsyta ger fel utan deländring. |
+| AT-22 | Exportera hela arbetsytan med två trädgårdar, en oanvänd växtpost och inställningar. Återställ i tom profil. Alla poster, ID:n och relationer bevaras. Ogiltig backup eller återställning i icke-tom arbetsyta utan explicit ersättningsval ger fel utan deländring. Bekräftad ersättning är atomisk. |
 | AT-23 | Testa att begäran om persistent storage beviljas, nekas respektive saknar API-stöd. UI visar rätt status utan att lova backup. Appen fungerar med tydlig varning när beständighet inte beviljas. |
 | AT-24 | Kör repository-kontraktstester för den lokala adaptern och en injicerad testadapter. Användarflöden och domäntester fungerar utan direkt import av lagringsmotor i UI/domän. Testa transaktionsrollback, revisionskonflikt och återförsök utan dubbletter. Ingen Supabase-implementation behövs. |
 | AT-25 | Öppna appen i en separat profil eller på en annan origin. Den har en separat lokal arbetsyta, inte automatisk synk. Flytta data dit med export/återställning. Den ursprungliga arbetsytan ska vara oförändrad och begränsningen förklaras i UI/README. |

@@ -17,7 +17,7 @@ export interface Repository {
   travel(gardenId: string, direction: "undo" | "redo"): Promise<void>;
   history(gardenId: string): Promise<History>;
   export(gardenId?: string): Promise<Snapshot>;
-  import(value: unknown): Promise<void>;
+  import(value: unknown, options?: { replaceWorkspace?: boolean }): Promise<void>;
   subscribe(listener: () => void): () => void;
   close(): Promise<void>;
 }
@@ -334,7 +334,7 @@ export class IndexedRepository implements Repository {
       ),
     };
   }
-  async import(value: unknown) {
+  async import(value: unknown, options: { replaceWorkspace?: boolean } = {}) {
     const snapshot = parseSnapshot(value),
       db = await this.connection(),
       tx = db.transaction(["records", "history"], "readwrite");
@@ -344,6 +344,7 @@ export class IndexedRepository implements Repository {
       let records = snapshot.records;
       if (snapshot.exportKind === "workspace") {
         if (
+          !options.replaceWorkspace &&
           all.some((r) => r.kind !== "workspace") &&
           !(
             isSeedOnlyWorkspace(all) &&

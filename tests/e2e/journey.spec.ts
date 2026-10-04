@@ -819,7 +819,9 @@ test("Figure colors and plant icons persist with snapshots and portable export",
   );
   await page.getByRole("button", { name: "Skapa egen växt" }).click();
   await page.getByLabel("Namn", { exact: true }).fill("Min lavendel");
-  await expect(page.getByRole("button", { name: /^Ikon: / })).toHaveCount(28);
+  await expect(page.getByRole("button", { name: /^Ikon: / })).toHaveCount(
+    Object.keys(plantIcons).length,
+  );
   await page
     .getByRole("button", { name: "Ikon: Lavendel", exact: true })
     .click();
@@ -1109,6 +1111,35 @@ test("AT-11: exported garden imports through file picker with new identity", asy
   await expect(page.getByLabel("Välj trädgård").locator("option")).toHaveCount(
     3,
   );
+});
+test("a confirmed full backup replaces the current workspace without copying its garden", async ({
+  page,
+}) => {
+  await createGarden(page);
+  await page.getByRole("link", { name: "Lagring", exact: true }).click();
+  const backup = await exported(page);
+  backup.records.find((record) => record.kind === "garden")!.name =
+    "Återställd trädgård";
+  await page
+    .getByLabel("Ersätt nuvarande arbetsyta med en full backup")
+    .check();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "ersattning.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(backup)),
+  });
+  await expect(page.getByRole("status").first()).toHaveText("Sparat lokalt");
+  await page.getByRole("link", { name: "Kartan", exact: true }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Återställd trädgård",
+      exact: true,
+      level: 1,
+    }),
+  ).toBeVisible();
+  expect((await exported(page)).records.filter((record) => record.kind === "garden"))
+    .toHaveLength(1);
 });
 test("390px mobile supports map, date and journal", async ({
   page,

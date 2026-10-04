@@ -59,6 +59,21 @@ async function fixture() {
   );
   return { w, g, o, plant, p, placement };
 }
+test("explicit workspace replacement preserves IDs and rejects unconfirmed replacement", async () => {
+  const { g } = await fixture();
+  const snapshot = await repo.export();
+  const updated = snapshot.records.find((record) => record.id === g.id)!;
+  updated.name = "Uppdaterad trädgård";
+  await expect(repo.import(snapshot)).rejects.toThrow();
+  expect((await repo.list()).find((record) => record.id === g.id)?.name).toBe(
+    g.name,
+  );
+  await repo.import(snapshot, { replaceWorkspace: true });
+  expect((await repo.list()).find((record) => record.id === g.id)?.name).toBe(
+    "Uppdaterad trädgård",
+  );
+  expect((await repo.export()).histories).toEqual(snapshot.histories);
+});
 test("mixed planting snapshots survive edits, undo/redo, garden copy and workspace restore", async () => {
   const { w, g, p } = await fixture();
   const flower = makeRecord("plant", w.id, {

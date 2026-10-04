@@ -136,6 +136,65 @@ function RoseDrawing({ variant = "pink" }: { variant?: PlantIconVariantId }) {
 
 // Original, local vector illustrations. No fonts, external images or user SVG.
 const drawings: Record<PlantIconId, React.ReactNode> = {
+  raspberry: (
+    <>
+      <path
+        stroke="#886544"
+        d="M29 60Q23 40 16 24M31 60Q40 43 47 24M31 57Q35 32 31 10"
+      />
+      <path
+        fill="#739e5c"
+        d="M29 23L20 21L14 12L20 11L25 6L30 14ZM33 25L36 13L43 8L44 14L50 18L42 23ZM19 37L8 34L4 25L12 25L16 20L20 29ZM39 40L43 29L52 25L53 31L60 35L49 40Z"
+      />
+      <path stroke="#4e7b48" strokeWidth="1.3" d="M28 21L21 13M35 23L43 16M18 35L10 28M41 38L52 32" />
+      {[
+        [17, 43],
+        [35, 33],
+        [48, 47],
+      ].map(([x, y]) => (
+        <g key={x} transform={`translate(${x} ${y})`} strokeWidth="1.2">
+          <path fill="#739e5c" d="M-6 -7L-2 -10L0 -7L3 -10L7 -6L1 -4Z" />
+          <path fill="#cd5269" stroke="#96394e" d="M-6 -5Q0 -9 6 -5Q10 0 5 5L1 9Q-2 11 -5 6Q-11 1 -6 -5Z" />
+          {[
+            [-3, -3],
+            [3, -3],
+            [-5, 1],
+            [0, 1],
+            [5, 1],
+            [-2, 5],
+            [2, 5],
+          ].map(([cx, cy], index) => (
+            <circle key={index} cx={cx} cy={cy} r="2.4" fill={index < 2 ? "#ec8191" : "#db6278"} stroke="#a64158" />
+          ))}
+        </g>
+      ))}
+    </>
+  ),
+  blueberry: (
+    <>
+      <path
+        stroke="#886544"
+        d="M29 60Q24 43 17 25M33 60Q42 42 48 22M31 58L31 12M31 39L43 31"
+      />
+      <path
+        fill="#79a36b"
+        d="M28 20Q14 20 15 8Q27 7 28 20ZM33 21Q33 8 46 7Q49 18 33 21ZM19 35Q5 36 5 24Q17 21 19 35ZM42 36Q44 22 57 22Q59 34 42 36ZM29 49Q13 51 12 41Q23 35 29 49Z"
+      />
+      <path stroke="#4e7b48" strokeWidth="1.3" d="M26 18L20 12M35 18L42 11M17 33L10 27M45 33L53 26M26 47L17 43" />
+      {[
+        [18, 29],
+        [34, 30],
+        [48, 40],
+        [35, 49],
+      ].map(([x, y]) => (
+        <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
+          <circle r="7" fill="#6886bb" stroke="#435d8d" strokeWidth="1.5" />
+          <path fill="#40577f" stroke="none" d="M0 -4L1 -1L4 -1L2 1L3 4L0 2L-3 4L-2 1L-4 -1L-1 -1Z" />
+          <path stroke="#acc1e2" strokeWidth="1.5" d="M-4 -3Q-6 0 -4 3" />
+        </g>
+      ))}
+    </>
+  ),
   lobelia: (
     <>
       <path d="M31 59Q30 42 17 23M31 53Q43 41 46 24M31 48L33 16" />

@@ -1265,7 +1265,9 @@ export function App({ repository }: { repository: Repository }) {
           element={
             <Storage
               onExport={download}
-              onImport={(value) => action(() => repository.import(value))}
+              onImport={(value, replaceWorkspace) =>
+                action(() => repository.import(value, { replaceWorkspace }))
+              }
               garden={!!garden}
             />
           }
@@ -1414,13 +1416,14 @@ function Storage({
   garden,
 }: {
   onExport: (all: boolean) => Promise<void>;
-  onImport: (value: unknown) => Promise<void>;
+  onImport: (value: unknown, replaceWorkspace?: boolean) => Promise<void>;
   garden: boolean;
 }) {
   const [result, setResult] = useState(
       "Beständig lagring har inte kontrollerats.",
     ),
     [error, setError] = useState("");
+  const [replaceWorkspace, setReplaceWorkspace] = useState(false);
   useEffect(() => {
     if (navigator.storage?.persisted)
       void navigator.storage
@@ -1446,9 +1449,10 @@ function Storage({
       <section>
         <h2>Säkerhetskopiera och flytta</h2>
         <p>
-          Backup bevarar alla ID:n och återställs endast i en tom arbetsyta.
-          Trädgårdsimport skapar en kopia med nya ID:n. Hela växtregistret
-          ingår.
+          Backup bevarar alla ID:n och återställs i en tom arbetsyta. Du kan
+          också välja att ersätta hela den nuvarande arbetsytan efter
+          bekräftelse. Trädgårdsimport skapar en kopia med nya ID:n. Hela
+          växtregistret ingår.
         </p>
         <div className="actions">
           <button
@@ -1462,21 +1466,44 @@ function Storage({
           </button>
         </div>
         <label className="field">
+          <input
+            type="checkbox"
+            checked={replaceWorkspace}
+            onChange={(e) => setReplaceWorkspace(e.target.checked)}
+          />{" "}
+          Ersätt nuvarande arbetsyta med en full backup
+        </label>
+        <label className="field">
           Importera trädgård som kopia / återställ arbetsytebackup (JSON, högst
           20 MB)
           <input
             type="file"
             accept=".json,application/json"
             onChange={async (e) => {
-              const file = e.target.files?.[0];
+              const input = e.currentTarget;
+              const file = input.files?.[0];
               if (!file) return;
               try {
                 setError("");
                 if (file.size > 20 * 1024 * 1024)
                   throw Error("Filen får vara högst 20 MB.");
-                await onImport(JSON.parse(await file.text()));
+                const value = JSON.parse(await file.text());
+                if (replaceWorkspace) {
+                  if (value?.exportKind !== "workspace")
+                    throw Error("För att ersätta arbetsytan krävs en full backup.");
+                  if (
+                    !confirm(
+                      "Detta ersätter all data i den här arbetsytan, inklusive trädgårdar och ångerhistorik. Har du sparat en backup av nuvarande läge?",
+                    )
+                  )
+                    return;
+                }
+                await onImport(value, replaceWorkspace);
+                setReplaceWorkspace(false);
               } catch (err) {
                 setError((err as Error).message);
+              } finally {
+                input.value = "";
               }
             }}
           />

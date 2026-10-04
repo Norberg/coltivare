@@ -28,6 +28,8 @@ export const plantIcons = {
   baikal: "Bajkal",
   hyacinth: "Hyacint",
   grapeHyacinth: "Pärlhyacint",
+  raspberry: "Hallonbuske",
+  blueberry: "Blåbärsbuske",
 } as const;
 export type PlantIconId = keyof typeof plantIcons;
 

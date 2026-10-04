@@ -125,11 +125,14 @@ export class MemoryRepository implements Repository {
       ...(gardenId ? {} : { histories: [...this.histories.values()] }),
     });
   }
-  async import(value: unknown) {
+  async import(value: unknown, options: { replaceWorkspace?: boolean } = {}) {
     const s = structuredClone(parseSnapshot(value));
     let records = s.records;
     if (s.exportKind === "workspace") {
-      if (this.records.some((r) => r.kind !== "workspace"))
+      if (
+        !options.replaceWorkspace &&
+        this.records.some((r) => r.kind !== "workspace")
+      )
         throw new DomainError("validation", "Arbetsytan är inte tom.");
     } else {
       const workspace = this.records.find((r) => r.kind === "workspace")!;

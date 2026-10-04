@@ -68,8 +68,9 @@ nyinstallerade standardväxter kan fortfarande ersättas av en full backup.
   konsistent ögonblicksbild.
 - `import`: filen valideras innan skrivning. Referenser i trädgårdsimport
   mappas om till nya ID:n. Workspace-backup avvisas om målmodellen innehåller
-  domändata. Alla skrivningar och eventuell ersättning av den tomma
-  arbetsyteposten ligger i samma transaktion.
+  domändata, såvida användaren inte uttryckligen valt och bekräftat att hela
+  arbetsytan ska ersättas. Rensning och återställning ligger då i samma
+  transaktion; ett fel rullar tillbaka allt.
 
 Första committen vinner vid samtidiga ändringar av samma revision. Felet
 rapporterar den sparade revisionen och dess uppdateringstid; förlorande

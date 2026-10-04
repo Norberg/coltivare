@@ -141,11 +141,11 @@ För blandningar visas bara blandningens namn som eventuell etikett; den fulla
 artlistan finns i muspekartipset och egenskapspanelen.
 
 Under **Redigera egenskaper → Utseende på kartan** väljer du figurfärg.
-Växtregistret och planteringar har dessutom 28 tecknade, lokala SVG-ikoner:
+Växtregistret och planteringar har dessutom 30 tecknade, lokala SVG-ikoner:
 oregano, lavendel, spenat, blåklint, ros, tulpan, pumpa, zucchini, morot och
 tomat, mangold, gul lök, röd lök, rosmarin, potatis, ärtor, oleander, pion
 och krokus samt lobelia, ringblomma, aubrietia, borstnejlika, sallat, ruccula,
-bajkal, hyacint och pärlhyacint. Tulpan kan vara rosa, röd, lila, vit, gul
+bajkal, hyacint, pärlhyacint, hallonbuske och blåbärsbuske. Tulpan kan vara rosa, röd, lila, vit, gul
 eller Little Beauty; hyacint kan vara blå eller aprikos och krokus blå, vit
 eller lila. Ros kan vara rosa, röd, vit, gul eller aprikos.
 I en ny arbetsyta skapas en **standardväxt per ikon** med namn och ikon,
@@ -166,8 +166,9 @@ Under Lagring finns två olika exportflöden:
   och hela växtregistret, även oanvända växter. Import skapar en
   separat trädgård med nya UUID:n och ompekade relationer.
 - **Säkerhetskopiera allt** inkluderar alla trädgårdar, växter, inställningar
-  och ångerhistorik. Återställning bevarar ID:n och tillåts endast i en tom
-  arbetsyta. En automatiskt skapad tom arbetsytepost räknas som tom.
+  och ångerhistorik. Återställning bevarar ID:n. I en icke-tom arbetsyta
+  krävs att **Ersätt nuvarande arbetsyta** väljs och att ersättningen bekräftas;
+  annars avvisas den. Spara alltid en separat backup före ersättning.
 
 Filer är versionsmärkta JSON-filer (`schemaVersion: 1`). Importgränsen är
 20 MiB. Välj filen lokalt under Lagring. Ogiltiga versioner och referenser
