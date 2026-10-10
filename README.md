@@ -30,8 +30,39 @@ pnpm preview
 Bygget finns i `dist/` och består enbart av statiska filer. Appen använder
 hashrouting (`/#/journal`), så servern behöver inga särskilda SPA-rewrites.
 Publicera med HTTPS och stabil adress; localhost fungerar för utveckling.
-Byggfilerna är **inte** en backup av odlingsdatan. Ingen driftsättning eller
-publicering har utförts.
+Byggfilerna är **inte** en backup av odlingsdatan.
+
+## Publicera på GitHub Pages
+
+Workflow-filen [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml)
+installerar beroenden med pnpm, typkontrollerar och bygger appen, och publicerar
+enbart `dist/` till GitHub Pages. Den körs vid push till repots standardbranch
+(`master` eller `main`) och kan också startas manuellt från **Actions**.
+
+1. Lägg projektet i ett GitHub-repo och pusha koden inklusive workflow-filen.
+2. Öppna repots **Settings → Pages → Build and deployment** och välj
+   **GitHub Actions** som **Source**.
+3. Starta **Deploy to GitHub Pages** under **Actions**, eller pusha en ändring
+   till standardbranchen. När publiceringen är klar visas webbplatsens adress
+   i körningens `github-pages`-miljö och under **Settings → Pages**.
+
+Workflowen hämtar webbplatsens sökväg från GitHub Pages och skickar den till
+Vite via `PAGES_BASE_PATH`. Det fungerar både för en projektsida på
+`https://<användare>.github.io/<repo>/` och en sida på domänens rot.
+Lokalt används `/` som tidigare. För att kontrollera ett bygge under en
+projektsökväg:
+
+```sh
+PAGES_BASE_PATH=/coltivare/ pnpm build
+PAGES_BASE_PATH=/coltivare/ pnpm preview
+```
+
+Öppna då `http://localhost:4173/coltivare/`.
+
+Odlingsdata flyttas inte automatiskt från localhost till GitHub Pages.
+Använd **Säkerhetskopiera allt** på den gamla adressen och återställ filen
+under **Lagring** på den nya adressen. Datan lagras fortfarande lokalt i
+webbläsaren även när appen hostas på GitHub Pages.
 
 ## Använda appen
 
