@@ -109,7 +109,15 @@ Ingen export innehåller en databasanslutning, IDB-typ, inloggningstoken eller
 annan motorberoende information. Import får inte ignorera okända versioner.
 Maximal filstorlek i UI är 20 MiB.
 
-## Framtida Supabase-lagring (inte implementerad)
+## Supabase-riktning och första molnversion
+
+Valfri molnlagring är nu implementerad enligt [docs/supabase.md](supabase.md).
+Den första versionen använder `coltivare_workspaces`, `coltivare_records`
+och `coltivare_histories`, med separata JSONB-poster, ägar-RLS och atomisk
+versionskontrollerad RPC. `WorkspaceState` utför domänoperationerna i minnet;
+`SupabaseRepository` läser och sparar till servern. Lokal `IndexedRepository`
+är oförändrad som separat datakälla. Nedan beskrivs den ursprungliga
+riktningen mot fler typade tabeller och framtida filstöd.
 
 Modellen kan mappas till separata PostgreSQL-tabeller: `workspaces`,
 `gardens`, `garden_objects`, `plant_definitions`, `plantings`, `placements`,
@@ -143,5 +151,5 @@ Detta skiljer sig från trädgårdsimport som skapar nya ID:n.
 Första molnversionen ska välja en datakälla uttryckligen. Lokal/fjärr
 tvåvägssynk kräver en separat specifikation för konflikter, raderingsmarkörer,
 idempotens och återförsök. `updatedAt` räcker inte som konfliktregel mellan
-enheter. Den lokala adaptern ska fortsatt fungera utan moln. Inga
-Supabase-SDK:er, SQL-migrationer, synkköer, konton eller molnprojekt ingår nu.
+enheter. Den lokala adaptern ska fortsatt fungera utan moln. SDK, SQL-migration, konton och en explicit datakälla ingår i den valfria
+molnversionen. Automatisk tvåvägssynk och filstöd återstår.

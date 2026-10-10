@@ -1,8 +1,13 @@
 // Test/preview server only. It serves built files and never accepts user data.
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, statSync, readFileSync } from "node:fs";
 import { resolve, extname, sep } from "node:path";
 const root = resolve("dist");
+const publicConfig = JSON.parse(
+  readFileSync("src/supabase-config.json", "utf8"),
+);
+const cloudOrigin = new URL(process.env.VITE_SUPABASE_URL || publicConfig.url)
+  .origin;
 const mime = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -20,7 +25,7 @@ createServer((request, response) => {
   );
   response.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+    `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ${cloudOrigin}; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'`,
   );
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("Referrer-Policy", "no-referrer");

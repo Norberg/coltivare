@@ -1,10 +1,25 @@
 import { IndexedRepository, type Repository } from "../src/repository";
 import { MemoryRepository } from "./memory-repository";
 import { makeRecord } from "../src/domain";
+import { SupabaseRepository } from "../src/supabaseRepository";
+import { TestCloudGateway } from "./cloud-gateway";
+import { PostgresGateway } from "./postgres-gateway";
 
 describe.each([
   ["IndexedDB", () => new IndexedRepository(crypto.randomUUID())],
   ["Injected memory adapter", () => new MemoryRepository()],
+  ["Cloud adapter", () => new SupabaseRepository(new TestCloudGateway())],
+  ...(process.env.COLTIVARE_SQL_TEST_CONTAINER
+    ? [
+        [
+          "PostgreSQL RPC",
+          () =>
+            new SupabaseRepository(
+              new PostgresGateway(process.env.COLTIVARE_SQL_TEST_CONTAINER!),
+            ),
+        ] as const,
+      ]
+    : []),
 ] as const)("%s contract", (_label, create) => {
   let repository: Repository;
   beforeEach(() => {
@@ -112,8 +127,12 @@ describe.each([
   test("undo deletes creations and redo restores records and relationships", async () => {
     const { g, p, place } = await setup();
     await repository.travel(g.id, "undo");
-    expect((await repository.list()).find((r) => r.id === g.id)).toBeUndefined();
-    expect((await repository.list()).find((r) => r.id === place.id)).toBeUndefined();
+    expect(
+      (await repository.list()).find((r) => r.id === g.id),
+    ).toBeUndefined();
+    expect(
+      (await repository.list()).find((r) => r.id === place.id),
+    ).toBeUndefined();
     await repository.travel(g.id, "redo");
     const restored = await repository.list();
     expect(restored.find((r) => r.id === place.id)?.plantingId).toBe(p.id);

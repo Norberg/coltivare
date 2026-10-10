@@ -1,5 +1,9 @@
 # REQUIREMENTS.md — Odlingskartan
 
+**Aktuell utökning:** Valfri Supabase-lagring utöver P0 har beställts och
+implementerats. [docs/supabase.md](docs/supabase.md) beskriver den första
+molnversionen och dess begränsningar. P0-kraven nedan beskriver det lokala läget.
+
 Version: 0.3 — faktisk odlingshistorik och lokal webbläsarlagring  
 Datum: 2026-09-25  
 Arbetsnamn: Odlingskartan. Namnet är inte ett beslutat produktnamn.

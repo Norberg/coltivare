@@ -1,10 +1,11 @@
 # Odlingskartan
 
 En svensk webbapp för att rita trädgården och dokumentera faktisk odling över
-tid. All odlingsdata lagras i webbläsarens IndexedDB. Ingen backend,
-inloggning, molnanslutning eller API-nyckel behövs.
+tid. Som standard lagras odlingsdata i webbläsarens IndexedDB utan backend
+eller inloggning. Valfri Supabase-lagring med konto ger åtkomst från flera
+enheter; se [installation och användning](docs/supabase.md).
 
-Implementationen omfattar P0 i [REQUIREMENTS.md](REQUIREMENTS.md), med lokal
+Den lokala implementationen omfattar P0 i [REQUIREMENTS.md](REQUIREMENTS.md), med lokal
 lagring, kartredigering, odlingshistorik och portabel backup. Testtäckning,
 mätresultat och verifieringsmiljö redovisas i
 [verifieringsrapporten](docs/verification.md).
@@ -61,8 +62,9 @@ PAGES_BASE_PATH=/coltivare/ pnpm preview
 
 Odlingsdata flyttas inte automatiskt från localhost till GitHub Pages.
 Använd **Säkerhetskopiera allt** på den gamla adressen och återställ filen
-under **Lagring** på den nya adressen. Datan lagras fortfarande lokalt i
-webbläsaren även när appen hostas på GitHub Pages.
+under **Lagring** på den nya adressen. I lokalt läge lagras datan fortfarande i
+webbläsaren även när appen hostas på GitHub Pages. Välj **Använd Supabase**
+för den separata molnarbetsytan efter [databasinstallationen](docs/supabase.md).
 
 ## Använda appen
 
@@ -206,9 +208,9 @@ Filer är versionsmärkta JSON-filer (`schemaVersion: 1`). Importgränsen är
 avvisas före skrivning; återställningen är atomisk. Spara backupfilen utanför
 webbläsaren och överför den till den andra enheten innan du importerar där.
 
-Data finns **bara i den aktuella webbläsarprofilen och origin** (protokoll,
+I lokalt läge finns data **bara i den aktuella webbläsarprofilen och origin** (protokoll,
 värdnamn och port). En annan profil eller adress har en annan arbetsyta.
-Appen har ingen molnsynk. Rensad webbplatsdata, privat surfning, diskhaveri
+Lokalt läge har ingen molnsynk. Rensad webbplatsdata, privat surfning, diskhaveri
 eller förlorad enhet kan medföra dataförlust. Begär beständig lagring under
 Lagring för att minska risken för automatisk rensning. Beviljande är inte en
 backup och skyddar inte mot egen rensning.
@@ -250,8 +252,8 @@ faktiskt körts.
 Teknikbasen följer [referensprojektets package.json](https://github.com/Norberg/molecule-lab-book/blob/master/package.json):
 React, TypeScript, Vite, pnpm, Bootstrap, React Router, TanStack Query,
 React Icons, Jest och Testing Library. IndexedDB-adaptern använder `idb`.
-Installerade versioner är låsta i `pnpm-lock.yaml`; inga oanvända Axios- eller
-Supabase-beroenden har lagts till. Jest/TypeScript/Vite behåller referensens
+Installerade versioner är låsta i `pnpm-lock.yaml`. `@supabase/supabase-js`
+laddas när användaren väljer molnlagring. Ingen Axios används. Jest/TypeScript/Vite behåller referensens
 huvudversioner. ESLint har uppgraderats till 10 eftersom version 9 gav en
 upstream-varning om avslutat versionsstöd; samma ESLint/TypeScript-teknikbas
 används med flat config.

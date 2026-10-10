@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, Route, Routes, useBlocker } from "react-router-dom";
 import {
@@ -35,7 +35,16 @@ import { MixturePicker } from "./MixturePicker";
 import { PlantSelectOptions } from "./PlantOptions";
 import { deleteRecordChanges } from "./deleteRecord";
 
-export function App({ repository }: { repository: Repository }) {
+export function App({
+  repository,
+  storageMode = "local",
+  storageControls,
+}: {
+  repository: Repository;
+  storageMode?: "local" | "cloud";
+  storageControls?: ReactNode;
+}) {
+  const cloud = storageMode === "cloud";
   const cache = useQueryClient();
   const query = useQuery({
     queryKey: ["records"],
@@ -115,12 +124,12 @@ export function App({ repository }: { repository: Repository }) {
       map?: boolean;
     }) => repository.commit(changes, map ? garden?.id : undefined),
     onMutate: () => {
-      setStatus("Sparar lokalt");
+      setStatus(cloud ? "Sparar i molnet" : "Sparar lokalt");
       setError("");
     },
     onSuccess: async () => {
       await cache.invalidateQueries({ queryKey: ["records"] });
-      setStatus("Sparat lokalt");
+      setStatus(cloud ? "Sparat i molnet" : "Sparat lokalt");
     },
     onError: (e) => {
       setStatus("Kunde inte spara");
@@ -193,16 +202,17 @@ export function App({ repository }: { repository: Repository }) {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   });
-  async function action(fn: () => Promise<unknown>) {
+  async function action(fn: () => Promise<unknown>, rethrow = false) {
     setError("");
-    setStatus("Sparar lokalt");
+    setStatus(cloud ? "Sparar i molnet" : "Sparar lokalt");
     try {
       await fn();
       await cache.invalidateQueries({ queryKey: ["records"] });
-      setStatus("Sparat lokalt");
+      setStatus(cloud ? "Sparat i molnet" : "Sparat lokalt");
     } catch (e) {
-      setError((e as Error).message);
       setStatus("Kunde inte spara");
+      if (rethrow) throw e;
+      setError((e as Error).message);
     }
   }
   async function remove(record: RecordData) {
@@ -391,14 +401,17 @@ export function App({ repository }: { repository: Repository }) {
     [records, garden?.id, date],
   );
   if (query.isPending)
-    return <main className="loading">Öppnar din lokala arbetsyta…</main>;
+    return <main className="loading">Öppnar din arbetsyta…</main>;
   if (query.error)
     return (
-      <main className="loading">
-        <h1>Arbetsytan kunde inte öppnas</h1>
-        <p role="alert">{query.error.message}</p>
-        <button onClick={() => void query.refetch()}>Försök igen</button>
-      </main>
+      <>
+        {storageControls}
+        <main className="loading">
+          <h1>Arbetsytan kunde inte öppnas</h1>
+          <p role="alert">{query.error.message}</p>
+          <button onClick={() => void query.refetch()}>Försök igen</button>
+        </main>
+      </>
     );
   return (
     <>
@@ -421,11 +434,13 @@ export function App({ repository }: { repository: Repository }) {
           </NavLink>
         </nav>
         <span className="save-status" role="status">
-          {status || "Lokal arbetsyta"}
+          {status || (cloud ? "Molnarbetsyta" : "Lokal arbetsyta")}
         </span>
       </header>
       <div className="privacy">
-        Data sparas bara i den här webbläsaren{" "}
+        {cloud
+          ? "Data sparas på ditt Supabase-konto"
+          : "Data sparas bara i den här webbläsaren"}{" "}
         <button onClick={() => void download(true)}>
           <FiDownload /> Säkerhetskopiera allt
         </button>
@@ -1266,9 +1281,14 @@ export function App({ repository }: { repository: Repository }) {
             <Storage
               onExport={download}
               onImport={(value, replaceWorkspace) =>
-                action(() => repository.import(value, { replaceWorkspace }))
+                action(
+                  () => repository.import(value, { replaceWorkspace }),
+                  true,
+                )
               }
               garden={!!garden}
+              cloud={cloud}
+              controls={storageControls}
             />
           }
         />
@@ -1414,10 +1434,14 @@ function Storage({
   onExport,
   onImport,
   garden,
+  cloud,
+  controls,
 }: {
   onExport: (all: boolean) => Promise<void>;
   onImport: (value: unknown, replaceWorkspace?: boolean) => Promise<void>;
   garden: boolean;
+  cloud: boolean;
+  controls?: ReactNode;
 }) {
   const [result, setResult] = useState(
       "Beständig lagring har inte kontrollerats.",
@@ -1439,12 +1463,19 @@ function Storage({
   }, []);
   return (
     <main className="page storage-page">
-      <span className="eyebrow">DIN DATA, HOS DIG</span>
-      <h1>Lokal lagring & säkerhetskopior</h1>
+      <span className="eyebrow">
+        {cloud ? "DIN DATA, PÅ DITT KONTO" : "DIN DATA, HOS DIG"}
+      </span>
+      <h1>
+        {cloud
+          ? "Molnlagring & säkerhetskopior"
+          : "Lokal lagring & säkerhetskopior"}
+      </h1>
+      {controls}
       <p>
-        Data sparas bara i den här webbläsaren. Profil, protokoll, värdnamn och
-        port bestämmer vilken arbetsyta du ser. En annan enhet eller URL får en
-        separat arbetsyta.
+        {cloud
+          ? "Data sparas på ditt Supabase-konto. Logga in med samma konto på andra enheter. Nätanslutning krävs för att läsa och spara. Lokala data finns kvar separat. Ändringar från andra enheter läses vid fokus och var 30:e sekund."
+          : "Data sparas bara i den här webbläsaren. Profil, protokoll, värdnamn och port bestämmer vilken arbetsyta du ser. En annan enhet eller URL får en separat arbetsyta."}
       </p>
       <section>
         <h2>Säkerhetskopiera och flytta</h2>
@@ -1490,7 +1521,9 @@ function Storage({
                 const value = JSON.parse(await file.text());
                 if (replaceWorkspace) {
                   if (value?.exportKind !== "workspace")
-                    throw Error("För att ersätta arbetsytan krävs en full backup.");
+                    throw Error(
+                      "För att ersätta arbetsytan krävs en full backup.",
+                    );
                   if (
                     !confirm(
                       "Detta ersätter all data i den här arbetsytan, inklusive trädgårdar och ångerhistorik. Har du sparat en backup av nuvarande läge?",
@@ -1510,41 +1543,43 @@ function Storage({
         </label>
         {error && <p role="alert">{error}</p>}
       </section>
-      <section>
-        <h2>Skydd för lokal data</h2>
-        <p role="status">{result}</p>
-        <button
-          onClick={async () => {
-            try {
-              if (!navigator.storage?.persist) {
-                setResult("Webbläsaren saknar stöd för beständig lagring.");
-                return;
+      {!cloud && (
+        <section>
+          <h2>Skydd för lokal data</h2>
+          <p role="status">{result}</p>
+          <button
+            onClick={async () => {
+              try {
+                if (!navigator.storage?.persist) {
+                  setResult("Webbläsaren saknar stöd för beständig lagring.");
+                  return;
+                }
+                const granted = await navigator.storage.persist();
+                const size = await navigator.storage.estimate();
+                setResult(
+                  `${granted ? "Beständig lagring beviljades." : "Begäran nekades; appen fungerar men data kan rensas automatiskt."} Använt: ${Math.round((size.usage || 0) / 1024)} kB. Detta är inte en backup.`,
+                );
+              } catch {
+                setResult(
+                  "Kunde inte begära beständig lagring. Appen kan fortfarande användas.",
+                );
               }
-              const granted = await navigator.storage.persist();
-              const size = await navigator.storage.estimate();
-              setResult(
-                `${granted ? "Beständig lagring beviljades." : "Begäran nekades; appen fungerar men data kan rensas automatiskt."} Använt: ${Math.round((size.usage || 0) / 1024)} kB. Detta är inte en backup.`,
-              );
-            } catch {
-              setResult(
-                "Kunde inte begära beständig lagring. Appen kan fortfarande användas.",
-              );
-            }
-          }}
-        >
-          Begär beständig lagring
-        </button>
-        <p>
-          Rensad webbplatsdata, privat surfning eller en förlorad enhet kan
-          innebära dataförlust. Spara säkerhetskopian utanför webbläsaren.
-        </p>
-      </section>
+            }}
+          >
+            Begär beständig lagring
+          </button>
+          <p>
+            Rensad webbplatsdata, privat surfning eller en förlorad enhet kan
+            innebära dataförlust. Spara säkerhetskopian utanför webbläsaren.
+          </p>
+        </section>
+      )}
       <section>
         <h2>Utan nätverk</h2>
         <p>
-          En redan laddad app kan redigeras och exporteras utan nätverk.
-          Offline-start eller omladdning utan nätverk garanteras inte. Ingen
-          inloggning, molnsynk eller extern odlingstjänst används.
+          {cloud
+            ? "Molnläget kräver nätanslutning. Ändringar köas inte offline. Vid ett avbrutet sparande, ladda om och kontrollera resultatet innan du försöker igen. Du kan växla till din separata lokala arbetsyta."
+            : "En redan laddad app kan redigeras och exporteras utan nätverk. Offline-start eller omladdning utan nätverk garanteras inte. Molnanslutning startar först när du väljer Använd Supabase."}
         </p>
       </section>
     </main>

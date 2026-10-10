@@ -9,3 +9,6 @@ coverage/
 .cache/
 odlingskartan-*.json
 Photos-*/
+.env
+.env.*
+!.env.example

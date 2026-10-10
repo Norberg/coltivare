@@ -2,6 +2,20 @@
 
 Datum: 2026-09-25. Status: P0 implementerad och verifierad i nedanstående miljö.
 
+## Utökning 2026-10-10: valfri Supabase-lagring
+
+Molnversionen beskrivs i [supabase.md](supabase.md). Verifiering: 129
+enhetstester och 47 webbläsartester godkända, inklusive produktionens
+inloggningsflöde med simulerade Supabase-svar. Migrationen har körts i en
+isolerad PostgreSQL 17-databas med test av ägarisolering, nekad anonym åtkomst,
+nekade direkta skrivningar och rollback. Samtliga 16 repository-kontraktstester
+är godkända även i SQL-testkörningen, där fyra kör molnadaptern mot verkliga
+RPC-funktioner. Typkontroll, lint och Pages-bygge är godkända.
+Det konfigurerade Supabase-projektets publika Auth-inställningar svarar,
+men dess appmigration behöver installeras före drift. Ingen verklig användare
+har skapats eller odlingsdata flyttats under testerna. Resten av rapporten
+beskriver den ursprungliga lokala P0-verifieringen.
+
 ## Leverans
 
 P0-funktionerna i `REQUIREMENTS.md` är implementerade: en svensk, statisk
