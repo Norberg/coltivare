@@ -1,3 +1,9 @@
+/** Match origin-only allow-list entries locally, while retaining the Pages project path. */
+export function authRedirectUrl(address: string) {
+  const url = new URL(address);
+  return url.origin + (url.pathname === "/" ? "" : url.pathname);
+}
+
 /** Auth fragments share the hash with the app router, so detect them before loading local data. */
 export function isAuthReturn(address: string) {
   const url = new URL(address);

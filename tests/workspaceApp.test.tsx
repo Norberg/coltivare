@@ -122,7 +122,7 @@ test("local mode never starts Supabase; switching accounts/modes keeps their dat
     email: "odlare@example.com",
     options: {
       shouldCreateUser: true,
-      emailRedirectTo: window.location.origin + window.location.pathname,
+      emailRedirectTo: window.location.origin,
     },
   });
   expect(connection.rpc).not.toHaveBeenCalled();

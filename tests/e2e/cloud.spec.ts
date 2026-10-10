@@ -88,7 +88,7 @@ test("production app opts into cloud, consumes an email link, reloads cloud data
     .click();
   await expect(page.getByRole("status")).toContainText(user.email);
   expect(sentEmail).toMatchObject({ email: user.email, create_user: true });
-  expect(redirectTo).toBe("http://127.0.0.1:4173/");
+  expect(redirectTo).toBe("http://127.0.0.1:4173");
   expect(requests.some((url) => url.includes("/rest/v1/"))).toBe(false);
   // A link must also open cloud mode in a browser that has not remembered that choice.
   await page.evaluate(() => localStorage.removeItem("coltivare-storage-mode"));

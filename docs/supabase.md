@@ -23,8 +23,9 @@ publika klientuppgifter, inte administrationsbehörighet.
    `https://norberg.github.io/coltivare/` som **Site URL** och lägg till dessa
    exakta adresser under **Redirect URLs**:
    - `https://norberg.github.io/coltivare/`
-   - `http://localhost:5173/`
-   - `http://127.0.0.1:5173/` om du använder den adressen lokalt.
+   - `http://localhost:5173`
+   - `http://localhost:5174` om du använder den porten lokalt.
+   - `http://127.0.0.1:5173` om du använder den adressen lokalt.
      För åtkomst från andra enheter behöver även den använda nätverksadressen tillåtas.
 5. Under **Authentication → Email Templates**, låt **Magic Link** och
    **Confirm signup** använda standardlänken `{{ .ConfirmationURL }}`.
@@ -34,7 +35,13 @@ publika klientuppgifter, inte administrationsbehörighet.
    att meddelandet hamnar i inkorgen; kontrollera även skräpposten och Auth-loggarna.
 
 Länken återvänder till adressen där den begärdes, inklusive `/coltivare/` på
-GitHub Pages. Appen tar hand om sessionen innan hash-routern öppnar arbetsytan,
+GitHub Pages. Vid körning från webbplatsens rot skickar appen endast origin,
+exempelvis `http://localhost:5173`, utan sista snedstrecket. Lägg till exakt
+den adressen i listan; annars kan Supabase falla tillbaka till **Site URL**.
+Efter en ändring behöver du begära en ny länk. Kontrollera också att e-postmallens
+länk använder `{{ .ConfirmationURL }}`, eftersom en hårdkodad adress eller
+`{{ .SiteURL }}` kan skicka användaren till en annan app.
+Appen tar hand om sessionen innan hash-routern öppnar arbetsytan,
 rensar inloggningsuppgifterna ur adressfältet och öppnar **Lagring**.
 En ogiltig eller utgången länk visar ett fel och möjlighet att begära en ny.
 Se [Supabases dokumentation om e-postlänkar](https://supabase.com/docs/guides/auth/auth-email-passwordless)

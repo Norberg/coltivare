@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { App } from "./App";
 import type { Repository } from "./repository";
 import { SupabaseRepository, supabaseGateway } from "./supabaseRepository";
-import { clearAuthReturn, isAuthReturn } from "./authRedirect";
+import { authRedirectUrl, clearAuthReturn, isAuthReturn } from "./authRedirect";
 
 const modeKey = "coltivare-storage-mode";
 function rememberedMode() {
@@ -234,8 +234,7 @@ function CloudLogin({
               email: address,
               options: {
                 shouldCreateUser: true,
-                emailRedirectTo:
-                  window.location.origin + window.location.pathname,
+                emailRedirectTo: authRedirectUrl(window.location.href),
               },
             });
             if (error) throw error;
