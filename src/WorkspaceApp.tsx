@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { useNavigate } from "react-router-dom";
 import { App } from "./App";
 import type { Repository } from "./repository";
 import { SupabaseRepository, supabaseGateway } from "./supabaseRepository";
+import { clearAuthReturn, isAuthReturn } from "./authRedirect";
 
 const modeKey = "coltivare-storage-mode";
 function rememberedMode() {
@@ -21,13 +23,24 @@ export function WorkspaceApp({
   localRepository: Repository;
   config: { url: string; anonKey: string };
 }) {
-  const [cloud, setCloud] = useState(rememberedMode);
+  const navigate = useNavigate();
+  const [cloud, setCloud] = useState(
+    () => rememberedMode() || isAuthReturn(window.location.href),
+  );
   const [client, setClient] = useState<SupabaseClient>();
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
     if (!cloud) return;
+    const callback = isAuthReturn(window.location.href);
+    if (callback) {
+      try {
+        localStorage.setItem(modeKey, "cloud");
+      } catch {
+        /* The link still works without remembering the mode. */
+      }
+    }
     let active = true;
     let cleanup: (() => void) | undefined;
     setReady(false);
@@ -35,7 +48,15 @@ export function WorkspaceApp({
       .then(async ({ createClient }) => {
         if (!active) return;
         const connection = createClient(config.url, config.anonKey, {
-          auth: { flowType: "pkce", storageKey: "coltivare-supabase-auth" },
+          auth: {
+            // Standard email links use an implicit callback on this static, client-only site.
+            // Still accept code callbacks from the previous PKCE sign-up flow.
+            flowType: new URL(window.location.href).searchParams.has("code")
+              ? "pkce"
+              : "implicit",
+            storageKey: "coltivare-supabase-auth",
+            detectSessionInUrl: true,
+          },
         });
         const {
           data: { subscription },
@@ -47,9 +68,19 @@ export function WorkspaceApp({
           connection.auth.stopAutoRefresh();
         };
         setClient(connection);
+        const { error: initializationError } =
+          await connection.auth.initialize();
         const { data, error: authError } = await connection.auth.getSession();
         if (!active) return;
-        if (authError) setError(authError.message);
+        if (callback) {
+          clearAuthReturn();
+          navigate("/installningar", { replace: true });
+        }
+        if (initializationError || (callback && !data.session))
+          setError(
+            "Inloggningslänken kunde inte användas. Den kan ha gått ut eller redan vara använd. Begär en ny länk.",
+          );
+        else if (authError) setError(authError.message);
         setSession(data.session);
         setReady(true);
       })
@@ -63,7 +94,7 @@ export function WorkspaceApp({
       active = false;
       cleanup?.();
     };
-  }, [cloud, config.url, config.anonKey]);
+  }, [cloud, config.url, config.anonKey, navigate]);
 
   const userId = session?.user.id;
   const repository = useMemo(
@@ -153,7 +184,7 @@ export function WorkspaceApp({
           </p>
         </main>
       ) : cloud && !session && client ? (
-        <CloudLogin client={client} />
+        <CloudLogin client={client} onSent={() => setError("")} />
       ) : (
         <QueryClientProvider client={cache}>
           <App
@@ -168,19 +199,24 @@ export function WorkspaceApp({
   );
 }
 
-function CloudLogin({ client }: { client: SupabaseClient }) {
+function CloudLogin({
+  client,
+  onSent,
+}: {
+  client: SupabaseClient;
+  onSent: () => void;
+}) {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [register, setRegister] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   return (
     <main className="page cloud-login">
-      <h1>{register ? "Skapa konto" : "Logga in till molnlagring"}</h1>
+      <h1>Logga in till molnlagring</h1>
       <p>
-        Varje konto har en egen arbetsyta i Supabase. Använd samma konto på dina
-        andra enheter. Molnläget kräver nätanslutning.
+        Ange din e-postadress så skickar vi en inloggningslänk. Öppna länken för
+        att logga in. Ett konto skapas första gången. Använd samma e-postadress
+        på dina andra enheter.
       </p>
       <p>
         Din lokala arbetsyta finns kvar. För att flytta den, spara en full
@@ -193,27 +229,20 @@ function CloudLogin({ client }: { client: SupabaseClient }) {
           setError("");
           setMessage("");
           try {
-            if (register) {
-              const { data, error } = await client.auth.signUp({
-                email: email.trim(),
-                password,
-                options: {
-                  emailRedirectTo:
-                    window.location.origin + window.location.pathname,
-                },
-              });
-              if (error) throw error;
-              if (!data.session)
-                setMessage(
-                  "Kontrollera din e-post och bekräfta kontot. Logga sedan in här.",
-                );
-            } else {
-              const { error } = await client.auth.signInWithPassword({
-                email: email.trim(),
-                password,
-              });
-              if (error) throw error;
-            }
+            const address = email.trim();
+            const { error } = await client.auth.signInWithOtp({
+              email: address,
+              options: {
+                shouldCreateUser: true,
+                emailRedirectTo:
+                  window.location.origin + window.location.pathname,
+              },
+            });
+            if (error) throw error;
+            onSent();
+            setMessage(
+              `En inloggningslänk har skickats till ${address}. Kontrollera din inkorg och skräppost. Öppna länken för att logga in.`,
+            );
           } catch (err) {
             setError((err as Error).message);
           } finally {
@@ -232,32 +261,13 @@ function CloudLogin({ client }: { client: SupabaseClient }) {
             disabled={busy}
           />
         </label>
-        <label className="field">
-          Lösenord
-          <input
-            type="password"
-            autoComplete={register ? "new-password" : "current-password"}
-            minLength={6}
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={busy}
-          />
-        </label>
         <div className="actions">
           <button type="submit" className="btn btn-primary" disabled={busy}>
-            {busy ? "Vänta…" : register ? "Skapa konto" : "Logga in"}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setRegister(!register);
-              setError("");
-              setMessage("");
-            }}
-          >
-            {register ? "Jag har redan ett konto" : "Skapa ett konto"}
+            {busy
+              ? "Skickar…"
+              : message
+                ? "Skicka ny inloggningslänk"
+                : "Skicka inloggningslänk"}
           </button>
         </div>
         {message && <p role="status">{message}</p>}

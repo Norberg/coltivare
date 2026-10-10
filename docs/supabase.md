@@ -1,7 +1,8 @@
 # Valfri Supabase-lagring
 
 Appen startar i lokalt läge. Öppna **Lagring** och välj **Använd Supabase** för att öppna
-molnanslutningen, skapa konto eller logga in med e-post och lösenord.
+molnanslutningen och logga in med en länk som skickas till din e-postadress.
+Öppna länken för att logga in; ett konto skapas första gången.
 Varje konto har en egen arbetsyta. Samma konto på flera enheter använder
 samma arbetsyta. Appen minns lagringsvalet i den aktuella webbläsaren.
 
@@ -16,15 +17,28 @@ publika klientuppgifter, inte administrationsbehörighet.
    [`202610100001_cloud_workspace.sql`](../supabase/migrations/202610100001_cloud_workspace.sql).
    Detta skapar tre tabeller och två RPC-funktioner med prefix `coltivare_`.
    Kör installationen en gång. Den gör inga ändringar i andra applikationers tabeller.
-3. Under **Authentication → Sign In / Providers**, aktivera e-post och
-   lösenord. Aktivera registrering om användare ska kunna skapa egna konton.
+3. Under **Authentication → Sign In / Providers**, aktivera **Email**.
+   Aktivera registrering om nya användare ska kunna skapa egna konton via länken.
 4. Under **Authentication → URL Configuration**, ange
-   `https://norberg.github.io/coltivare/` som **Site URL** och tillåten
-   **Redirect URL**. För lokal utveckling kan du även tillåta
-   `http://localhost:5173/`.
-5. Om e-postbekräftelse används behöver utskick fungera för dina användare.
-   Efter bekräftelse går det att logga in med e-post och lösenord. Om
-   registrering är avstängd kan administratören skapa användare i Supabase.
+   `https://norberg.github.io/coltivare/` som **Site URL** och lägg till dessa
+   exakta adresser under **Redirect URLs**:
+   - `https://norberg.github.io/coltivare/`
+   - `http://localhost:5173/`
+   - `http://127.0.0.1:5173/` om du använder den adressen lokalt.
+     För åtkomst från andra enheter behöver även den använda nätverksadressen tillåtas.
+5. Under **Authentication → Email Templates**, låt **Magic Link** och
+   **Confirm signup** använda standardlänken `{{ .ConfirmationURL }}`.
+   Appen använder länkar, inte en kod som skrivs in manuellt.
+6. Se till att e-postutskick fungerar för de adresser som ska logga in.
+   Konfigurera SMTP vid behov. Ett lyckat svar från API:t garanterar inte
+   att meddelandet hamnar i inkorgen; kontrollera även skräpposten och Auth-loggarna.
+
+Länken återvänder till adressen där den begärdes, inklusive `/coltivare/` på
+GitHub Pages. Appen tar hand om sessionen innan hash-routern öppnar arbetsytan,
+rensar inloggningsuppgifterna ur adressfältet och öppnar **Lagring**.
+En ogiltig eller utgången länk visar ett fel och möjlighet att begära en ny.
+Se [Supabases dokumentation om e-postlänkar](https://supabase.com/docs/guides/auth/auth-email-passwordless)
+och [tillåtna returadresser](https://supabase.com/docs/guides/auth/redirect-urls).
 
 Den publika nyckeln kan inte köra SQL-installationen eller konfigurera Auth.
 Använd projektets dashboard för de stegen. Ingen administrativ nyckel behövs

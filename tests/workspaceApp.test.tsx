@@ -62,14 +62,12 @@ test("local mode never starts Supabase; switching accounts/modes keeps their dat
         listener = fn;
         return { data: { subscription: { unsubscribe: jest.fn() } } };
       }),
+      initialize: jest.fn(async () => ({ error: null })),
       getSession: jest.fn(async () => ({
         data: { session: null },
         error: null,
       })),
-      signInWithPassword: jest.fn(async () => {
-        listener("SIGNED_IN", session);
-        return { error: null };
-      }),
+      signInWithOtp: jest.fn(async () => ({ error: null })),
       signOut: jest.fn(async () => {
         listener("SIGNED_OUT", null);
         return { error: null };
@@ -114,10 +112,21 @@ test("local mode never starts Supabase; switching accounts/modes keeps their dat
   fireEvent.change(screen.getByLabelText("E-post"), {
     target: { value: "odlare@example.com" },
   });
-  fireEvent.change(screen.getByLabelText("Lösenord"), {
-    target: { value: "password-example" },
+  fireEvent.click(
+    screen.getByRole("button", { name: "Skicka inloggningslänk" }),
+  );
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "odlare@example.com",
+  );
+  expect(connection.auth.signInWithOtp).toHaveBeenCalledWith({
+    email: "odlare@example.com",
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: window.location.origin + window.location.pathname,
+    },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Logga in" }));
+  expect(connection.rpc).not.toHaveBeenCalled();
+  await act(async () => listener("SIGNED_IN", session));
   expect(
     await screen.findByRole("option", { name: "Molnträdgården" }),
   ).toBeVisible();
