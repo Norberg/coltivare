@@ -42,11 +42,20 @@ export class PostgresGateway implements CloudGateway {
   async read(): Promise<CloudState> {
     return JSON.parse(this.query("select public.coltivare_read_workspace();"));
   }
+  async version() {
+    return Number(
+      this.query(
+        "select coalesce((select version from public.coltivare_workspaces), 0);",
+      ),
+    );
+  }
   async write(version: number, snapshot: Snapshot) {
     const sqlJson = (value: unknown) =>
       "'" + JSON.stringify(value).replace(/'/g, "''") + "'::jsonb";
-    this.query(
-      `select public.coltivare_save_workspace(${version}, ${sqlJson(snapshot.records)}, ${sqlJson(snapshot.histories || [])});`,
+    return Number(
+      this.query(
+        `select public.coltivare_save_workspace(${version}, ${sqlJson(snapshot.records)}, ${sqlJson(snapshot.histories || [])});`,
+      ),
     );
   }
 }

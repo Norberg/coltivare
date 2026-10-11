@@ -74,6 +74,14 @@ test("local mode never starts Supabase; switching accounts/modes keeps their dat
       }),
       stopAutoRefresh: jest.fn(),
     },
+    from: jest.fn(() => ({
+      select: () => ({
+        maybeSingle: async () => ({
+          data: { version: server.state.version },
+          error: null,
+        }),
+      }),
+    })),
     rpc: jest.fn(async (name, args) => {
       if (name === "coltivare_read_workspace")
         return { data: await server.read(), error: null };

@@ -80,8 +80,9 @@ molnarbetsytan och rensar appens cache för kontot, men raderar inte molndata.
 ## Transaktioner och begränsningar
 
 Molnläget kräver nätanslutning. Det finns ingen offlinekö eller automatisk
-tvåvägssynk med IndexedDB. Appen läser den senaste arbetsytan före varje
-skrivning och skickar poster och ångerhistorik i en atomisk RPC-transaktion.
+tvåvägssynk med IndexedDB. Appen kontrollerar arbetsytans version före varje skrivning och hämtar
+innehållet om serverversionen har ändrats. Poster och ångerhistorik skickas
+i en atomisk RPC-transaktion.
 Posternas revisioner kontrolleras i klienten, och servern låser arbetsytan
 och jämför arbetsytans revision innan något ersätts. Samtidiga skrivningar
 ger konflikt i stället för tyst överskrivning. Domänvalidering körs i
@@ -96,10 +97,24 @@ versionskontrollen. Poster
 ligger som separata rader med typad identitet och JSONB-innehåll i PostgreSQL.
 Inga backupfiler eller odlingsdata lagras i Storage-buckets.
 
-Första molnversionen läser och ersätter hela arbetsytans rader per skrivning.
+Molnlagringen ersätter hela arbetsytans rader per skrivning.
 Det passar appens befintliga storleksgräns på 20 MB men bör ersättas med
 mer riktade kommandon för mycket stora arbetsytor. Bilder/filer och Realtime
-ingår inte. Andra enheters ändringar läses vid fönsterfokus och var 30:e sekund.
+ingår inte. Andra enheters ändringar kontrolleras när du återvänder till appen och varje
+minut medan fliken är synlig och webbläsaren har nätanslutning. Kontrollen
+läser endast `version` från den egna raden i `coltivare_workspaces`, med
+befintlig RLS. Ingen ny SQL-installation behövs. Hela arbetsytan hämtas bara
+vid första läsningen och efter en ändrad serverversion.
+
+Den senast bekräftade arbetsytan finns i minnet för den aktuella sessionen.
+Efter en lyckad sparning uppdateras denna cache med serverns returnerade
+version, så appens efterföljande uppdateringar inte hämtar samma innehåll igen.
+Täta läsningar återanvänder samma versionkontroll under två sekunder;
+skrivningar och backup-export kontrollerar alltid servern. Avbrutna eller
+nekade sparningar rensar cachen så nästa läsning hämtar serverns verkliga läge.
+Cachen är inte en offlinekö och blandas inte med den lokala arbetsytan.
+Sparandet ersätter fortfarande hela arbetsytans innehåll; stora arbetsytor
+med många skrivningar kan därför fortsatt belasta databasen.
 
 Vid nätverksavbrott under en skrivning kan servern ha hunnit spara även om
 svaret förloras. Appen rapporterar inte framgång och skriver inte i IndexedDB

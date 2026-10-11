@@ -42,6 +42,9 @@ end $$;
 
 set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
 do $$ begin
+  if (select count(*) from public.coltivare_workspaces) <> 0 then
+    raise exception 'FAIL: version check leaks another user workspace';
+  end if;
   if (select count(*) from public.coltivare_records) <> 0 then
     raise exception 'FAIL: another user can read records';
   end if;

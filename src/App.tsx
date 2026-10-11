@@ -168,12 +168,13 @@ export function App({
     [repository, cache],
   );
   useEffect(() => {
+    if (cloud) return; // Cloud refresh is coordinated by the repository.
     const focus = () => {
       void cache.invalidateQueries({ queryKey: ["records"] });
     };
     window.addEventListener("focus", focus);
     return () => window.removeEventListener("focus", focus);
-  }, [cache]);
+  }, [cache, cloud]);
   useEffect(() => {
     const unload = (e: BeforeUnloadEvent) => {
       if (dirty) {
@@ -1474,7 +1475,7 @@ function Storage({
       {controls}
       <p>
         {cloud
-          ? "Data sparas på ditt Supabase-konto. Logga in med samma konto på andra enheter. Nätanslutning krävs för att läsa och spara. Lokala data finns kvar separat. Ändringar från andra enheter läses vid fokus och var 30:e sekund."
+          ? "Data sparas på ditt Supabase-konto. Logga in med samma konto på andra enheter. Nätanslutning krävs för att läsa och spara. Lokala data finns kvar separat. Ändringar från andra enheter kontrolleras när du återvänder till appen och varje minut medan fliken är synlig."
           : "Data sparas bara i den här webbläsaren. Profil, protokoll, värdnamn och port bestämmer vilken arbetsyta du ser. En annan enhet eller URL får en separat arbetsyta."}
       </p>
       <section>

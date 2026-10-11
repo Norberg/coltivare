@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 test("production app opts into cloud, consumes an email link, reloads cloud data and returns to its untouched local garden", async ({
   page,
 }) => {
+  await page.clock.install();
   const cloud = { version: 0, records: [] as any[], histories: [] as any[] };
   const requests: string[] = [];
   let sentEmail: any;
@@ -47,7 +48,10 @@ test("production app opts into cloud, consumes an email link, reloads cloud data
         user,
       };
     else if (path === "/auth/v1/user") body = user;
-    else if (path === "/rest/v1/rpc/coltivare_read_workspace") body = cloud;
+    else if (path === "/rest/v1/coltivare_workspaces") {
+      expect(new URL(request.url()).searchParams.get("select")).toBe("version");
+      body = [{ version: cloud.version }];
+    } else if (path === "/rest/v1/rpc/coltivare_read_workspace") body = cloud;
     else if (path === "/rest/v1/rpc/coltivare_save_workspace") {
       const data = request.postDataJSON();
       if (data.expected_version !== cloud.version) {
@@ -106,6 +110,30 @@ test("production app opts into cloud, consumes an email link, reloads cloud data
     page.getByRole("heading", { name: "Molnträdgården", level: 1 }),
   ).toBeVisible();
   expect(cloud.records.some((r) => r.name === "Molnträdgården")).toBe(true);
+  expect(
+    requests.filter(
+      (url) =>
+        new URL(url).pathname === "/rest/v1/rpc/coltivare_read_workspace",
+    ),
+  ).toHaveLength(1);
+  const versionChecks = requests.filter(
+    (url) => new URL(url).pathname === "/rest/v1/coltivare_workspaces",
+  ).length;
+  await page.clock.fastForward(61000);
+  await expect
+    .poll(
+      () =>
+        requests.filter(
+          (url) => new URL(url).pathname === "/rest/v1/coltivare_workspaces",
+        ).length,
+    )
+    .toBeGreaterThan(versionChecks);
+  expect(
+    requests.filter(
+      (url) =>
+        new URL(url).pathname === "/rest/v1/rpc/coltivare_read_workspace",
+    ),
+  ).toHaveLength(1);
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Molnträdgården", level: 1 }),

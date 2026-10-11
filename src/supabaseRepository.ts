@@ -10,7 +10,8 @@ export interface CloudState {
 }
 export interface CloudGateway {
   read(): Promise<CloudState>;
-  write(expectedVersion: number, snapshot: Snapshot): Promise<void>;
+  version(): Promise<number>;
+  write(expectedVersion: number, snapshot: Snapshot): Promise<number>;
 }
 
 function cloudError(error: { code?: string; message: string }): DomainError {
@@ -48,29 +49,65 @@ export function supabaseGateway(client: SupabaseClient): CloudGateway {
         );
       return data as CloudState;
     },
+    async version() {
+      // Existing RLS restricts this small SELECT to the signed-in owner's row.
+      const { data, error } = await client
+        .from("coltivare_workspaces")
+        .select("version")
+        .maybeSingle();
+      if (error) throw cloudError(error);
+      const version = data?.version ?? 0;
+      if (!Number.isSafeInteger(version) || version < 0)
+        throw new DomainError(
+          "version",
+          "Molndatabasen har ett oväntat format.",
+        );
+      return version;
+    },
     async write(expectedVersion, snapshot) {
-      const { error } = await client.rpc("coltivare_save_workspace", {
+      const { data, error } = await client.rpc("coltivare_save_workspace", {
         expected_version: expectedVersion,
         next_records: snapshot.records,
         next_histories: snapshot.histories || [],
       });
       if (error) throw cloudError(error);
+      if (!Number.isSafeInteger(data) || data !== expectedVersion + 1)
+        throw new DomainError(
+          "version",
+          "Sparandet kunde inte bekräftas. Ladda om och kontrollera resultatet.",
+        );
+      return data as number;
     },
   };
 }
 
-/** Always reads the server before a write. Never queues writes or falls back to local data. */
+/** Session-only cache. Server CAS still protects every write; nothing is queued offline. */
 export class SupabaseRepository implements Repository {
   private listeners = new Set<() => void>();
   private timer?: ReturnType<typeof setInterval>;
+  private cached?: CloudState;
+  private checkedAt = 0;
+  private queue: Promise<void> = Promise.resolve();
   constructor(private gateway: CloudGateway) {}
   private emit = () => this.listeners.forEach((listener) => listener());
+  private refresh = () => {
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState === "hidden"
+    )
+      return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    this.emit();
+  };
   subscribe(listener: () => void) {
     this.listeners.add(listener);
     if (this.listeners.size === 1) {
-      this.timer = setInterval(this.emit, 30000);
-      if (typeof window !== "undefined")
-        window.addEventListener("focus", this.emit);
+      this.timer = setInterval(this.refresh, 60000);
+      if (typeof window !== "undefined") {
+        window.addEventListener("focus", this.refresh);
+        window.addEventListener("online", this.refresh);
+        document.addEventListener("visibilitychange", this.refresh);
+      }
     }
     return () => {
       this.listeners.delete(listener);
@@ -79,15 +116,36 @@ export class SupabaseRepository implements Repository {
   }
   private stop() {
     clearInterval(this.timer);
-    if (typeof window !== "undefined")
-      window.removeEventListener("focus", this.emit);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("focus", this.refresh);
+      window.removeEventListener("online", this.refresh);
+      document.removeEventListener("visibilitychange", this.refresh);
+    }
   }
   async close() {
     this.stop();
     this.listeners.clear();
+    this.cached = undefined;
   }
-  private async load() {
-    const cloud = await this.gateway.read();
+  // Serialize operations so a late read cannot replace a newly saved cache entry.
+  private run<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.queue.then(operation);
+    this.queue = result.then(
+      () => {},
+      () => {},
+    );
+    return result;
+  }
+  private async load(forceCheck = false) {
+    if (!this.cached || forceCheck || Date.now() - this.checkedAt >= 2000) {
+      if (
+        !this.cached ||
+        (await this.gateway.version()) !== this.cached.version
+      )
+        this.cached = await this.gateway.read();
+      this.checkedAt = Date.now();
+    }
+    const cloud = this.cached;
     const state = new WorkspaceState(
       cloud.records.length
         ? {
@@ -101,27 +159,49 @@ export class SupabaseRepository implements Repository {
     );
     return { cloud, state };
   }
-  async list(): Promise<Snapshot["records"]> {
-    const { cloud, state } = await this.load();
-    const records = await state.list();
-    if (JSON.stringify(records) !== JSON.stringify(cloud.records)) {
-      try {
-        await this.gateway.write(cloud.version, await state.export());
-      } catch (error) {
-        // Two devices can initialize the same empty account at once. Read the winner.
-        if (error instanceof DomainError && error.code === "conflict")
-          return this.list();
-        throw error;
-      }
+  private async persist(version: number, state: WorkspaceState) {
+    const snapshot = await state.export();
+    try {
+      const nextVersion = await this.gateway.write(version, snapshot);
+      this.cached = {
+        version: nextVersion,
+        records: snapshot.records,
+        histories: snapshot.histories || [],
+      };
+      this.checkedAt = Date.now();
+    } catch (error) {
+      // A lost response may mean the server committed; never reuse the pre-write cache.
+      this.cached = undefined;
+      throw error;
     }
-    return records;
+  }
+  async list(): Promise<Snapshot["records"]> {
+    return this.run(async () => {
+      for (;;) {
+        const { cloud, state } = await this.load();
+        const records = await state.list();
+        if (JSON.stringify(records) !== JSON.stringify(cloud.records)) {
+          try {
+            await this.persist(cloud.version, state);
+          } catch (error) {
+            // Two devices may initialize the same empty account at once.
+            if (error instanceof DomainError && error.code === "conflict")
+              continue;
+            throw error;
+          }
+        }
+        return records;
+      }
+    });
   }
   private async mutate(operation: (state: WorkspaceState) => Promise<void>) {
-    const { cloud, state } = await this.load();
-    await state.list();
-    await operation(state);
-    await this.gateway.write(cloud.version, await state.export());
-    this.emit();
+    return this.run(async () => {
+      const { cloud, state } = await this.load(true);
+      await state.list();
+      await operation(state);
+      await this.persist(cloud.version, state);
+      this.emit();
+    });
   }
   commit(changes: Change[], gardenId?: string) {
     return this.mutate((state) => state.commit(changes, gardenId));
@@ -130,10 +210,10 @@ export class SupabaseRepository implements Repository {
     return this.mutate((state) => state.travel(gardenId, direction));
   }
   async history(gardenId: string) {
-    return (await this.load()).state.history(gardenId);
+    return this.run(async () => (await this.load()).state.history(gardenId));
   }
   async export(gardenId?: string) {
-    return (await this.load()).state.export(gardenId);
+    return this.run(async () => (await this.load(true)).state.export(gardenId));
   }
   import(value: unknown, options?: { replaceWorkspace?: boolean }) {
     return this.mutate((state) => state.import(value, options));

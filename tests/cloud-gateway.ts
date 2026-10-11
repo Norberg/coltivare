@@ -6,6 +6,9 @@ export class TestCloudGateway implements CloudGateway {
   state: CloudState = { version: 0, records: [], histories: [] };
   failWrite = false;
   loseResponse = false;
+  async version() {
+    return this.state.version;
+  }
   async read() {
     return structuredClone(this.state);
   }
@@ -21,5 +24,6 @@ export class TestCloudGateway implements CloudGateway {
     });
     if (this.loseResponse)
       throw new DomainError("unavailable", "Svar förlorat");
+    return this.state.version;
   }
 }
