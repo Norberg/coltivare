@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { StrictMode } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { createClient, type Session } from "@supabase/supabase-js";
 import { WorkspaceApp } from "../src/WorkspaceApp";
@@ -72,7 +73,8 @@ test("local mode never starts Supabase; switching accounts/modes keeps their dat
         listener("SIGNED_OUT", null);
         return { error: null };
       }),
-      stopAutoRefresh: jest.fn(),
+      stopAutoRefresh: jest.fn(async () => {}),
+      startAutoRefresh: jest.fn(async () => {}),
     },
     from: jest.fn(() => ({
       select: () => ({
@@ -105,7 +107,11 @@ test("local mode never starts Supabase; switching accounts/modes keeps their dat
     ],
     { initialEntries: ["/installningar"] },
   );
-  const view = render(<RouterProvider router={router} />);
+  const view = render(
+    <StrictMode>
+      <RouterProvider router={router} />
+    </StrictMode>,
+  );
   expect(
     await screen.findByRole("option", { name: "Lokala trädgården" }),
   ).toBeVisible();
@@ -159,6 +165,10 @@ test("local mode never starts Supabase; switching accounts/modes keeps their dat
   expect(
     (await server.read()).records.some((r) => r.name === "Molnträdgården"),
   ).toBe(true);
+  // Reopening cloud mode must reuse the Auth client and install one fresh subscriber.
+  fireEvent.click(screen.getByRole("button", { name: "Använd Supabase" }));
+  await screen.findByRole("heading", { name: "Logga in till molnlagring" });
+  expect(createClient).toHaveBeenCalledTimes(1);
   view.unmount();
   await cloud.close();
 });

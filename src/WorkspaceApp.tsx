@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { App } from "./App";
 import type { Repository } from "./repository";
 import { SupabaseRepository, supabaseGateway } from "./supabaseRepository";
+import { acquireSupabaseClient } from "./supabaseClient";
 import { authRedirectUrl, clearAuthReturn, isAuthReturn } from "./authRedirect";
 
 const modeKey = "coltivare-storage-mode";
@@ -44,20 +45,12 @@ export function WorkspaceApp({
     let active = true;
     let cleanup: (() => void) | undefined;
     setReady(false);
-    void import("@supabase/supabase-js")
-      .then(async ({ createClient }) => {
-        if (!active) return;
-        const connection = createClient(config.url, config.anonKey, {
-          auth: {
-            // Standard email links use an implicit callback on this static, client-only site.
-            // Still accept code callbacks from the previous PKCE sign-up flow.
-            flowType: new URL(window.location.href).searchParams.has("code")
-              ? "pkce"
-              : "implicit",
-            storageKey: "coltivare-supabase-auth",
-            detectSessionInUrl: true,
-          },
-        });
+    void acquireSupabaseClient(config)
+      .then(async ({ client: connection, release }) => {
+        if (!active) {
+          release();
+          return;
+        }
         const {
           data: { subscription },
         } = connection.auth.onAuthStateChange((_event, next) => {
@@ -65,7 +58,7 @@ export function WorkspaceApp({
         });
         cleanup = () => {
           subscription.unsubscribe();
-          connection.auth.stopAutoRefresh();
+          release();
         };
         setClient(connection);
         const { error: initializationError } =
