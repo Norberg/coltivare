@@ -51,6 +51,47 @@ Den publika nyckeln kan inte köra SQL-installationen eller konfigurera Auth.
 Använd projektets dashboard för de stegen. Ingen administrativ nyckel behövs
 i appen eller i GitHub Actions.
 
+## Uppgradera: stoppa upprepade versionskonflikter
+
+Äldre installationer signalerade en versionskonflikt med SQLSTATE `40001`.
+PostgREST 14 kan då fastna i återförsök på servern, även efter att webbläsaren
+stängts. [Supabases felsökning beskriver felet och åtgärden](https://supabase.com/docs/guides/troubleshooting/high-cpu-and-infinite-transaction-retries-when-using-custom-error-codes-in-rpc-functions-77326b).
+
+1. Kör hela [`202610110001_conflict_http_409.sql`](../supabase/migrations/202610110001_conflict_http_409.sql)
+   i projektets **SQL Editor**. Den ändrar endast felkoden i den befintliga
+   sparfunktionen till `PT409` (HTTP 409); data och behörigheter bevaras.
+   Uppgraderingen kan köras igen. Kör inte den första installationsfilen på nytt.
+2. Kontrollera om nya fel upphör efter uppgraderingen. I det här projektet
+   räckte SQL-fixen. Om felen fortsätter kan en redan fastnad anslutning behöva
+   stoppas separat. Matcha då `process_id` i de senaste felloggarna med `pid`
+   i denna fråga:
+
+   ```sql
+   select pid, backend_start, state, query_start, query
+   from pg_stat_activity
+   where usename = 'authenticator'
+     and query like '%coltivare_save_workspace%';
+   ```
+
+   För loggens `process_id = 290545`, avbryt enbart den anslutningen om den
+   fortfarande kör Coltivares sparfunktion:
+
+   ```sql
+   select pg_terminate_backend(pid)
+   from pg_stat_activity
+   where pid = 290545
+     and usename = 'authenticator'
+     and query like '%coltivare_save_workspace%';
+   ```
+
+   Byt PID om de aktuella loggarna visar ett annat värde. Ett lyckat avbrott
+   returnerar `true`. Andra appars anslutningar omfattas inte av frågan.
+
+3. Publicera den uppdaterade appen och ladda om. Den känner igen `PT409` som
+   versionskonflikt och begränsar initiering till högst ett automatiskt återförsök.
+4. Kontrollera att **nya** `40001`-loggar upphör. Gamla loggar finns kvar.
+   En enstaka `PT409` vid samtidiga ändringar är fortsatt en avsiktlig konflikt.
+
 ## Konfiguration och GitHub Pages
 
 Det konfigurerade projektet används som standard både lokalt och på GitHub

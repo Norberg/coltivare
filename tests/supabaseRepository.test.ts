@@ -1,7 +1,62 @@
-import { SupabaseRepository } from "../src/supabaseRepository";
+import { SupabaseRepository, supabaseGateway } from "../src/supabaseRepository";
 import { TestCloudGateway } from "./cloud-gateway";
 import { IndexedRepository } from "../src/repository";
-import { makeRecord } from "../src/domain";
+import { DomainError, makeRecord } from "../src/domain";
+
+test.each(["PT409", "40001"])(
+  "gateway reports %s as a conflict",
+  async (code) => {
+    const client = {
+      rpc: jest.fn().mockResolvedValue({
+        data: null,
+        error: { code, message: "Workspace changed on another device" },
+      }),
+    } as unknown as Parameters<typeof supabaseGateway>[0];
+    await expect(
+      supabaseGateway(client).write(0, {
+        schemaVersion: 1,
+        exportKind: "workspace",
+        exportedAt: new Date().toISOString(),
+        records: [],
+      }),
+    ).rejects.toMatchObject({ code: "conflict" });
+  },
+);
+
+test("persistent initialization conflicts stop after one retry and allow later recovery", async () => {
+  const server = new TestCloudGateway();
+  const read = jest.spyOn(server, "read");
+  const write = jest.spyOn(server, "write").mockImplementation(async () => {
+    throw new DomainError("conflict", "Samtidig ändring");
+  });
+  const repository = new SupabaseRepository(server);
+  try {
+    await expect(repository.list()).rejects.toMatchObject({ code: "conflict" });
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(read).toHaveBeenCalledTimes(2);
+    write.mockRestore();
+    expect(await repository.list()).not.toHaveLength(0);
+    expect(server.state.version).toBe(1);
+  } finally {
+    await repository.close();
+  }
+});
+
+test("concurrent initialization reads the winner without repeatedly saving", async () => {
+  const server = new TestCloudGateway();
+  const write = jest.spyOn(server, "write");
+  const first = new SupabaseRepository(server);
+  const second = new SupabaseRepository(server);
+  try {
+    const [one, two] = await Promise.all([first.list(), second.list()]);
+    expect(one).toEqual(two);
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(server.state.version).toBe(1);
+  } finally {
+    await first.close();
+    await second.close();
+  }
+});
 
 test("restoring a workspace without plants persists seeding once across devices", async () => {
   const server = new TestCloudGateway();

@@ -83,7 +83,8 @@ begin
   end if;
   select version into current_version from public.coltivare_workspaces where owner_id = account for update;
   if current_version is null or current_version is distinct from expected_version then
-    raise exception 'Workspace changed on another device' using errcode = '40001';
+    -- 40001 triggers infinite server-side retries in PostgREST 14.
+    raise exception 'Workspace changed on another device' using errcode = 'PT409';
   end if;
   if (select count(*) from jsonb_array_elements(next_records) r where r->>'kind' = 'workspace') <> 1 then
     raise exception 'Exactly one workspace is required' using errcode = '22023';

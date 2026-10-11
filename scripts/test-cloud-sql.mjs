@@ -38,6 +38,9 @@ try {
   for (const file of [
     "tests/sql/bootstrap.sql",
     "supabase/migrations/202610100001_cloud_workspace.sql",
+    "tests/sql/legacy-conflict.sql",
+    "supabase/migrations/202610110001_conflict_http_409.sql",
+    "supabase/migrations/202610110001_conflict_http_409.sql", // Upgrade is idempotent.
     "tests/sql/cloud-security.sql",
   ]) {
     console.log(

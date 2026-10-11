@@ -15,7 +15,7 @@ export interface CloudGateway {
 }
 
 function cloudError(error: { code?: string; message: string }): DomainError {
-  if (error.code === "40001")
+  if (error.code === "PT409" || error.code === "40001")
     return new DomainError(
       "conflict",
       "En annan enhet har ändrat arbetsytan. Ladda den senaste versionen innan du försöker igen.",
@@ -177,6 +177,7 @@ export class SupabaseRepository implements Repository {
   }
   async list(): Promise<Snapshot["records"]> {
     return this.run(async () => {
+      let retriedInitialization = false;
       for (;;) {
         const { cloud, state } = await this.load();
         const records = await state.list();
@@ -184,9 +185,16 @@ export class SupabaseRepository implements Repository {
           try {
             await this.persist(cloud.version, state);
           } catch (error) {
-            // Two devices may initialize the same empty account at once.
-            if (error instanceof DomainError && error.code === "conflict")
+            // Retry once to read the winner when two devices initialize together.
+            // Persistent conflicts must reach the UI instead of flooding the server.
+            if (
+              !retriedInitialization &&
+              error instanceof DomainError &&
+              error.code === "conflict"
+            ) {
+              retriedInitialization = true;
               continue;
+            }
             throw error;
           }
         }

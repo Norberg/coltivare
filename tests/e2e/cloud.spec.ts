@@ -56,7 +56,7 @@ test("production app opts into cloud, consumes an email link, reloads cloud data
       const data = request.postDataJSON();
       if (data.expected_version !== cloud.version) {
         status = 409;
-        body = { code: "40001", message: "conflict" };
+        body = { code: "PT409", message: "conflict" };
       } else {
         cloud.version++;
         cloud.records = data.next_records;

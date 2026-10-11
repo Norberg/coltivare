@@ -33,7 +33,7 @@ export class PostgresGateway implements CloudGateway {
     );
     if (result.status !== 0) {
       throw new DomainError(
-        result.stderr.includes("40001") ? "conflict" : "unavailable",
+        result.stderr.includes("PT409") ? "conflict" : "unavailable",
         result.stderr,
       );
     }
