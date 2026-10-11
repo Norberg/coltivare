@@ -86,7 +86,7 @@ test("grid hover shows only plant names and map labels obey cell space", () => {
   ).toBeLessThan(grid.geometry!.y + 0.95);
 });
 
-test("a moved shape keeps its preview while persistence is pending", async () => {
+test("a delayed move save keeps previews stable and cannot clear the next drag", async () => {
   class Point {
     constructor(
       public x: number,
@@ -136,11 +136,19 @@ test("a moved shape keeps its preview while persistence is pending", async () =>
   const pending = new Promise<void>((resolve) => {
     finish = resolve;
   });
-  const onMove = jest.fn(() => pending);
+  const onMove = jest.fn(
+    (_record: typeof object, _geometry: typeof object.geometry) => pending,
+  );
+  const second = {
+    ...object,
+    id: crypto.randomUUID(),
+    name: "Andra landet",
+    geometry: { ...object.geometry!, x: 10 },
+  };
   const view = render(
     <GardenMap
       garden={garden}
-      records={[workspace, garden, object]}
+      records={[workspace, garden, object, second]}
       date="2027-04-01"
       selected={object.id}
       tool="move"
@@ -159,15 +167,40 @@ test("a moved shape keeps its preview while persistence is pending", async () =>
   const svg = view.getByRole("application");
   const shape = view.container.querySelector(".structure-shape")!;
   fireEvent.pointerDown(shape, { button: 0, clientX: 2, clientY: 3 });
-  fireEvent.pointerMove(svg, { clientX: 5, clientY: 6 });
+  fireEvent.pointerMove(svg, { buttons: 1, clientX: 5, clientY: 6 });
   expect(shape).toHaveAttribute("transform", "translate(5 6) rotate(0)");
 
   fireEvent.pointerUp(svg);
   expect(onMove).toHaveBeenCalledTimes(1);
   expect(shape).toHaveAttribute("transform", "translate(5 6) rotate(0)");
 
+  fireEvent.pointerUp(svg);
+  expect(onMove).toHaveBeenCalledTimes(1);
+  // Cursor movement after release must not change the saving preview.
+  fireEvent.pointerMove(svg, { buttons: 0, clientX: 9, clientY: 9 });
+  expect(shape).toHaveAttribute("transform", "translate(5 6) rotate(0)");
+  fireEvent.pointerMove(svg, { buttons: 1, clientX: 9, clientY: 9 });
+  expect(shape).toHaveAttribute("transform", "translate(5 6) rotate(0)");
+  const otherShape = view.container.querySelectorAll(".structure-shape")[1];
+  fireEvent.pointerDown(otherShape, { button: 0, clientX: 10, clientY: 3 });
+  fireEvent.pointerMove(svg, { buttons: 1, clientX: 12, clientY: 5 });
+  expect(otherShape).toHaveAttribute("transform", "translate(12 5) rotate(0)");
+  expect(view.container.querySelector(".draft")).not.toBeInTheDocument();
   await act(async () => {
     finish();
     await pending;
   });
+  // Finishing the first save must not clear the second drag.
+  expect(otherShape).toHaveAttribute("transform", "translate(12 5) rotate(0)");
+  fireEvent.pointerMove(svg, { buttons: 1, clientX: 13, clientY: 6 });
+  expect(otherShape).toHaveAttribute("transform", "translate(13 6) rotate(0)");
+  expect(view.container.querySelector(".draft")).not.toBeInTheDocument();
+  await act(async () => {
+    fireEvent.pointerUp(svg);
+  });
+  expect(onMove).toHaveBeenCalledTimes(2);
+  expect(onMove.mock.calls[1]).toEqual([
+    second,
+    expect.objectContaining({ x: 13, y: 6 }),
+  ]);
 });

@@ -71,7 +71,26 @@ export function GardenMap(p: Props) {
     group?: RecordData[];
     marquee?: boolean;
   }>();
+  const gestureVersion = useRef(0);
+  const releasedGestureVersion = useRef(-1);
+  function beginGesture(next: NonNullable<typeof gesture>) {
+    gestureVersion.current++;
+    setDraft(undefined);
+    setSnapGuides([]);
+    setGesture(next);
+  }
+  // A slow save must not clear the next drag that started while it was pending.
+  function finishGesture(version: number) {
+    if (gestureVersion.current !== version) return;
+    setGesture(undefined);
+    setDraft(undefined);
+    setSnapGuides([]);
+  }
   useEffect(() => {
+    gestureVersion.current++;
+    setGesture(undefined);
+    setDraft(undefined);
+    setSnapGuides([]);
     setMulti(false);
     setMarked([]);
     setFailedGroup(undefined);
@@ -147,6 +166,7 @@ export function GardenMap(p: Props) {
     }
   }
   const cancel = () => {
+    gestureVersion.current++;
     setSnapGuides([]);
     setDraft(undefined);
     setGesture(undefined);
@@ -158,6 +178,7 @@ export function GardenMap(p: Props) {
         event.key === "Escape" &&
         !(event.target as HTMLElement).closest("input,textarea,select")
       ) {
+        gestureVersion.current++;
         setDraft(undefined);
         setSnapGuides([]);
         setGesture(undefined);
@@ -368,7 +389,7 @@ export function GardenMap(p: Props) {
                   (item) => marked.includes(item.id) && !item.locked,
                 );
                 svg.current?.setPointerCapture(e.pointerId);
-                setGesture({
+                beginGesture({
                   start: point(e, false),
                   record: r,
                   original: groupBounds(group, p.records),
@@ -378,7 +399,11 @@ export function GardenMap(p: Props) {
               }
               if (!r.locked && p.tool === "move") {
                 svg.current?.setPointerCapture(e.pointerId);
-                setGesture({ start: point(e, false), record: r, original: g });
+                beginGesture({
+                  start: point(e, false),
+                  record: r,
+                  original: g,
+                });
               }
             }}
           >
@@ -517,7 +542,7 @@ export function GardenMap(p: Props) {
                       if (e.button !== 0) return;
                       e.stopPropagation();
                       svg.current?.setPointerCapture(e.pointerId);
-                      setGesture({
+                      beginGesture({
                         start: transform(point(e), g, true),
                         record: r,
                         original: g,
@@ -640,23 +665,28 @@ export function GardenMap(p: Props) {
           if (savingGroup) return;
           if (p.tool === "move" && multi) {
             svg.current?.setPointerCapture(e.pointerId);
-            setGesture({ start: point(e, false), marquee: true });
+            beginGesture({ start: point(e, false), marquee: true });
             return;
           }
           if (p.tool === "select" || p.tool === "move") return;
           svg.current?.setPointerCapture(e.pointerId);
           const pt = point(e);
           if (p.tool === "pan" || p.tool === "resize")
-            setGesture({
+            beginGesture({
               start: pt,
               pan: view,
               client: { x: e.clientX, y: e.clientY },
               scale: 1 / svg.current!.getScreenCTM()!.a,
             });
-          else setGesture({ start: pt });
+          else beginGesture({ start: pt });
         }}
         onPointerMove={(e) => {
-          if (!gesture) return;
+          if (
+            !gesture ||
+            e.buttons === 0 ||
+            releasedGestureVersion.current === gestureVersion.current
+          )
+            return;
           const pt = point(e, p.tool === "move" ? false : p.snap),
             dx = pt.x - gesture.start.x,
             dy = pt.y - gesture.start.y;
@@ -715,80 +745,81 @@ export function GardenMap(p: Props) {
             });
         }}
         onPointerUp={async () => {
-          if (gesture?.marquee) {
-            const box = draft ? bounds(draft) : undefined;
-            setMarked(
-              box
-                ? visible
-                    .filter((r) => {
-                      if (r.locked) return false;
-                      const b = bounds(worldGeometry(r, p.records));
-                      return (
-                        b.minX >= box.minX &&
-                        b.maxX <= box.maxX &&
-                        b.minY >= box.minY &&
-                        b.maxY <= box.maxY
-                      );
-                    })
-                    .map((r) => r.id)
-                : [],
-            );
-            setFailedGroup(undefined);
-            setGesture(undefined);
-            setDraft(undefined);
-            return;
-          }
-          if (gesture?.group) {
-            if (groupDelta)
-              await saveGroup(
-                translateGroup(gesture.group, p.records, groupDelta),
+          const version = gestureVersion.current;
+          if (!gesture || releasedGestureVersion.current === version) return;
+          releasedGestureVersion.current = version;
+          try {
+            if (gesture?.marquee) {
+              const box = draft ? bounds(draft) : undefined;
+              setMarked(
+                box
+                  ? visible
+                      .filter((r) => {
+                        if (r.locked) return false;
+                        const b = bounds(worldGeometry(r, p.records));
+                        return (
+                          b.minX >= box.minX &&
+                          b.maxX <= box.maxX &&
+                          b.minY >= box.minY &&
+                          b.maxY <= box.maxY
+                        );
+                      })
+                      .map((r) => r.id)
+                  : [],
               );
-            else
-              setMarked((ids) => ids.filter((id) => id !== gesture.record!.id));
-            setGesture(undefined);
-            setDraft(undefined);
-            setSnapGuides([]);
-            return;
+              setFailedGroup(undefined);
+              return;
+            }
+            if (gesture?.group) {
+              if (groupDelta)
+                await saveGroup(
+                  translateGroup(gesture.group, p.records, groupDelta),
+                );
+              else
+                setMarked((ids) =>
+                  ids.filter((id) => id !== gesture.record!.id),
+                );
+              return;
+            }
+            if (gesture && !gesture.pan) {
+              const g =
+                draft ||
+                (p.tool === "path"
+                  ? pathGeometry(
+                      gesture.start,
+                      { x: gesture.start.x + 4, y: gesture.start.y },
+                      p.pathWidth || 0.8,
+                    )
+                  : {
+                      x: gesture.start.x,
+                      y: gesture.start.y,
+                      width: p.tool === "planting" ? 0.7 : 4,
+                      height: p.tool === "planting" ? 0.7 : 1.2,
+                      rotation: 0,
+                      shape:
+                        p.tool === "ellipse"
+                          ? ("ellipse" as const)
+                          : ("rectangle" as const),
+                    });
+              if (gesture.record) {
+                if (draft) {
+                  const parent = p.records.find(
+                    (r) => r.id === gesture.record!.objectId,
+                  )?.geometry;
+                  const local = parent
+                    ? {
+                        ...g,
+                        ...transform(g, parent, true),
+                        rotation: g.rotation - parent.rotation,
+                      }
+                    : g;
+                  await p.onMove(gesture.record, local);
+                }
+              } else await p.onCreate(g);
+            }
+          } finally {
+            finishGesture(version);
           }
-          if (gesture && !gesture.pan) {
-            const g =
-              draft ||
-              (p.tool === "path"
-                ? pathGeometry(
-                    gesture.start,
-                    { x: gesture.start.x + 4, y: gesture.start.y },
-                    p.pathWidth || 0.8,
-                  )
-                : {
-                    x: gesture.start.x,
-                    y: gesture.start.y,
-                    width: p.tool === "planting" ? 0.7 : 4,
-                    height: p.tool === "planting" ? 0.7 : 1.2,
-                    rotation: 0,
-                    shape:
-                      p.tool === "ellipse"
-                        ? ("ellipse" as const)
-                        : ("rectangle" as const),
-                  });
-            if (gesture.record) {
-              if (draft) {
-                const parent = p.records.find(
-                  (r) => r.id === gesture.record!.objectId,
-                )?.geometry;
-                const local = parent
-                  ? {
-                      ...g,
-                      ...transform(g, parent, true),
-                      rotation: g.rotation - parent.rotation,
-                    }
-                  : g;
-                await p.onMove(gesture.record, local);
-              }
-            } else await p.onCreate(g);
-          }
-          setGesture(undefined);
-          setDraft(undefined);
-          setSnapGuides([]);
         }}
         onPointerCancel={cancel}
       >
@@ -875,14 +906,21 @@ export function GardenMap(p: Props) {
             {shape(p.placementDraft)}
           </g>
         )}
-        {draft && !gesture?.record && (
-          <g
-            className="draft"
-            transform={`translate(${draft.x} ${draft.y}) rotate(${draft.rotation})`}
-          >
-            {shape(draft)}
-          </g>
-        )}
+        {draft &&
+          gesture &&
+          !gesture.record &&
+          !gesture.pan &&
+          (gesture.marquee ||
+            ["rectangle", "ellipse", "path", "planting", "plantGrid"].includes(
+              p.tool,
+            )) && (
+            <g
+              className="draft"
+              transform={`translate(${draft.x} ${draft.y}) rotate(${draft.rotation})`}
+            >
+              {shape(draft)}
+            </g>
+          )}
         <g
           transform={`translate(${view.x + 0.5} ${view.y + view.w * 0.7 - 0.6})`}
           pointerEvents="none"
