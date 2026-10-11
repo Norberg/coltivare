@@ -125,6 +125,8 @@ export function RecordForm({
     draft.kind === "placement"
       ? records.find((r) => r.id === draft.plantingId)
       : undefined;
+  const mixedPlanting =
+    draft.kind === "planting" && draft.additionalPlants !== undefined;
   const appearanceIcon = draft.icon ?? draft.snapshot?.icon;
   const appearanceVariant =
     draft.icon !== undefined ? draft.iconVariant : draft.snapshot?.iconVariant;
@@ -141,6 +143,8 @@ export function RecordForm({
   );
   const submit = async () => {
     try {
+      if (draft.kind === "planting" && !draft.snapshot)
+        throw Error("Välj minst en växt i planteringen.");
       let changes: Change[];
       if (move) {
         if (!draft.startDate && !draft.unknownStart)
@@ -256,7 +260,7 @@ export function RecordForm({
               Återställ standardfärg
             </button>
           )}
-          {["plant", "planting"].includes(draft.kind) && (
+          {["plant", "planting"].includes(draft.kind) && !mixedPlanting && (
             <>
               <p className="hint">
                 Välj en växtikon. Nya planteringar får en kopia av växtens färg
@@ -580,18 +584,22 @@ export function RecordForm({
           </p>
           <MixturePicker
             records={records}
-            primaryId={draft.plantId!}
-            selected={(draft.additionalPlants || []).map((plant) => plant.id)}
-            onChange={(ids) =>
-              edit({
-                additionalPlants: ids.map((id) =>
-                  structuredClone(
-                    draft.additionalPlants?.find((plant) => plant.id === id) ||
-                      records.find((plant) => plant.id === id)!,
-                  ),
+            selected={plantingPlants(draft).map((plant) => plant.id)}
+            onChange={(ids) => {
+              const snapshots = ids.map((id) =>
+                structuredClone(
+                  plantingPlants(draft).find((plant) => plant.id === id) ||
+                    records.find((plant) => plant.id === id)!,
                 ),
-              })
-            }
+              );
+              const [first, ...others] = snapshots;
+              edit({
+                plantId: first?.id,
+                snapshot: first,
+                additionalPlants:
+                  mixedPlanting || snapshots.length > 1 ? others : undefined,
+              });
+            }}
           />
           <p className="hint">
             Antalet gäller hela planteringen. Växterna delar yta och datum.

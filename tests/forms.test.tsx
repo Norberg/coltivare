@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { RecordForm } from "../src/Forms";
 import { makeRecord } from "../src/domain";
@@ -221,4 +221,94 @@ test("decimal comma remains editable until the numeric field is committed", () =
   fireEvent.change(input, { target: { value: "1,2" } });
   fireEvent.blur(input);
   expect(change).toHaveBeenCalledWith("1,2");
+});
+
+test("all five meadow species are checked and its first species can be removed without a separate icon choice", async () => {
+  const workspaceId = crypto.randomUUID();
+  const plants = [
+    "Lavendel",
+    "Blåklint",
+    "Krokus",
+    "Ringblomma",
+    "Lobelia",
+  ].map((name) =>
+    makeRecord("plant", workspaceId, {
+      name,
+      fields: { Sortnamn: "Sparad sort" },
+    }),
+  );
+  const meadow = makeRecord("planting", workspaceId, {
+    name: "Blomsteräng",
+    plantId: plants[0].id,
+    snapshot: plants[0],
+    additionalPlants: plants.slice(1),
+    count: 100,
+  });
+  const save = jest.fn().mockResolvedValue(undefined);
+  render(
+    <RecordForm
+      record={meadow}
+      records={plants.map((plant) => ({
+        ...plant,
+        fields: { Sortnamn: "Ändrad katalog" },
+      }))}
+      save={save}
+      cancel={() => {}}
+      onDirty={() => {}}
+    />,
+  );
+  for (const plant of plants)
+    expect(screen.getByRole("checkbox", { name: plant.name })).toBeChecked();
+  expect(
+    screen.queryByRole("group", { name: "Växtikon" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByLabelText("Färg/variant för växtikon"),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("checkbox", { name: plants[0].name }));
+  fireEvent.click(screen.getByRole("button", { name: "Spara" }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  const updated = save.mock.calls[0][0][0].after;
+  expect(updated).toMatchObject({
+    name: "Blomsteräng",
+    count: 100,
+    plantId: plants[1].id,
+    snapshot: plants[1],
+    additionalPlants: plants.slice(2),
+  });
+});
+
+test("a meadow cannot be saved with all species unchecked", async () => {
+  const workspaceId = crypto.randomUUID();
+  const plants = ["Lavendel", "Blåklint"].map((name) =>
+    makeRecord("plant", workspaceId, { name }),
+  );
+  const meadow = makeRecord("planting", workspaceId, {
+    name: "Äng",
+    plantId: plants[0].id,
+    snapshot: plants[0],
+    additionalPlants: plants.slice(1),
+    count: 10,
+  });
+  const save = jest.fn().mockResolvedValue(undefined);
+  render(
+    <RecordForm
+      record={meadow}
+      records={plants}
+      save={save}
+      cancel={() => {}}
+      onDirty={() => {}}
+    />,
+  );
+  for (const plant of plants)
+    fireEvent.click(screen.getByRole("checkbox", { name: plant.name }));
+  fireEvent.click(screen.getByRole("button", { name: "Spara" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Välj minst en växt",
+  );
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("checkbox", { name: plants[1].name }));
+  fireEvent.click(screen.getByRole("button", { name: "Spara" }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  expect(save.mock.calls[0][0][0].after.plantId).toBe(plants[1].id);
 });

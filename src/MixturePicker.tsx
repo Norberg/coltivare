@@ -3,12 +3,10 @@ import { plantGroups } from "./PlantOptions";
 
 export function MixturePicker({
   records,
-  primaryId,
   selected,
   onChange,
 }: {
   records: RecordData[];
-  primaryId: string;
   selected: string[];
   onChange: (ids: string[]) => void;
 }) {
@@ -16,17 +14,17 @@ export function MixturePicker({
   const sections = [
     {
       label: "Standardväxter",
-      plants: groups.defaults.filter((r) => r.id !== primaryId),
+      plants: groups.defaults,
     },
     {
       label: "Egna växter",
-      plants: groups.custom.filter((r) => r.id !== primaryId),
+      plants: groups.custom,
     },
   ];
   const hasOptions = sections.some((section) => section.plants.length > 0);
   return (
     <fieldset className="mixture-picker">
-      <legend>Fler växter i samma yta</legend>
+      <legend>Växter i planteringen</legend>
       {!hasOptions && (
         <p className="hint">
           Skapa fler växter i växtregistret för att kunna blanda.

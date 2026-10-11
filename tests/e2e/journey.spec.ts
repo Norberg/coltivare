@@ -188,8 +188,9 @@ test("Flower icon variants persist in snapshots and can be changed per planting"
     "Hyacint – Aprikos",
   );
   const snapshot = await exported(page);
-  expect(snapshot.records.find((record) => record.kind === "planting")?.snapshot)
-    .toMatchObject({ icon: "hyacinth", iconVariant: "apricot" });
+  expect(
+    snapshot.records.find((record) => record.kind === "planting")?.snapshot,
+  ).toMatchObject({ icon: "hyacinth", iconVariant: "apricot" });
 
   await page.locator(".plant-shape").click();
   await page
@@ -219,6 +220,7 @@ test("A mix can be planted using only checked species, without a dropdown plant"
   await page.getByRole("button", { name: "Plantera", exact: true }).click();
   await page.getByLabel("Växt att plantera").selectOption("");
   await page.getByLabel("Blandad plantering", { exact: true }).check();
+  await expect(page.getByLabel("Växt att plantera")).toHaveCount(0);
   await page.getByLabel("Blandningens namn").fill("Blomsteräng utan huvudväxt");
   await page.getByRole("checkbox", { name: "Blåklint", exact: true }).check();
   await page.getByRole("application").click({ position: { x: 200, y: 150 } });
@@ -353,6 +355,12 @@ test("A meadow is one mixed planting with editable species, persistent snapshots
   await page
     .getByRole("button", { name: "Redigera plantering och antal" })
     .click();
+  await expect(
+    page.getByRole("checkbox", { name: "Lavendel", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("group", { name: "Växtikon", exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("checkbox", { name: "Krokus", exact: true }).uncheck();
   await page.getByRole("button", { name: "Spara", exact: true }).click();
   await expect(page.locator(".plant-shape title")).toContainText(
@@ -982,7 +990,9 @@ test("Dragging a planting keeps its preview until saved, including with an open 
   await page.reload();
   await expect(page.locator("svg .plant-shape")).toHaveCount(1);
 });
-test("Deleting a selected object is undoable and redoable", async ({ page }) => {
+test("Deleting a selected object is undoable and redoable", async ({
+  page,
+}) => {
   await createGarden(page);
   await draw(page, "Rektangel");
   await expect(page.locator("svg .structure-shape")).toHaveCount(1);
@@ -1138,8 +1148,9 @@ test("a confirmed full backup replaces the current workspace without copying its
       level: 1,
     }),
   ).toBeVisible();
-  expect((await exported(page)).records.filter((record) => record.kind === "garden"))
-    .toHaveLength(1);
+  expect(
+    (await exported(page)).records.filter((record) => record.kind === "garden"),
+  ).toHaveLength(1);
 });
 test("390px mobile supports map, date and journal", async ({
   page,

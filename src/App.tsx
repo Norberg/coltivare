@@ -83,7 +83,7 @@ export function App({
   const [mixtureIds, setMixtureIds] = useState<string[]>([]);
   const [mixtureName, setMixtureName] = useState("");
   const [count, setCount] = useState("1");
-  const selectedPlants = [...new Set([plantId, ...(mixed ? mixtureIds : [])])]
+  const selectedPlants = [...new Set(mixed ? mixtureIds : [plantId])]
     .map((id) => records.find((record) => record.id === id))
     .filter(
       (record): record is RecordData => !!record && record.kind === "plant",
@@ -616,29 +616,39 @@ export function App({
                 )}
                 {tool === "planting" && (
                   <div className="plant-picker">
-                    <label className="field">
-                      {mixed ? "Första växt (valfritt)" : "Växt"}
-                      <select
-                        aria-label="Växt att plantera"
-                        value={plantId}
-                        onChange={(e) => {
-                          setPlantId(e.target.value);
-                          setMixtureIds((ids) =>
-                            ids.filter((id) => id !== e.target.value),
-                          );
-                        }}
-                      >
-                        <option value="">Välj en växt</option>
-                        <PlantSelectOptions records={records} />
-                      </select>
-                    </label>
+                    {!mixed && (
+                      <label className="field">
+                        Växt
+                        <select
+                          aria-label="Växt att plantera"
+                          value={plantId}
+                          onChange={(e) => {
+                            setPlantId(e.target.value);
+                            setMixtureIds((ids) =>
+                              ids.filter((id) => id !== e.target.value),
+                            );
+                          }}
+                        >
+                          <option value="">Välj en växt</option>
+                          <PlantSelectOptions records={records} />
+                        </select>
+                      </label>
+                    )}
                     {!plantingToPlace && (
                       <>
                         <label>
                           <input
                             type="checkbox"
                             checked={mixed}
-                            onChange={(e) => setMixed(e.target.checked)}
+                            onChange={(e) => {
+                              const next = e.target.checked;
+                              if (next)
+                                setMixtureIds((ids) => [
+                                  ...new Set([plantId, ...ids].filter(Boolean)),
+                                ]);
+                              else setPlantId(mixtureIds[0] || "");
+                              setMixed(next);
+                            }}
                           />{" "}
                           Blandad plantering
                         </label>
@@ -651,15 +661,12 @@ export function App({
                             />
                             <MixturePicker
                               records={records}
-                              primaryId={plantId}
                               selected={mixtureIds}
                               onChange={setMixtureIds}
                             />
                             <p className="hint">
-                              Kryssa i minst två växter. Du kan också välja en
-                              första växt i rullistan, men det är valfritt.
-                              Antalet gäller hela blandningen; alla växter delar
-                              yta och datum.
+                              Kryssa i minst två växter. Antalet gäller hela
+                              blandningen; alla växter delar yta och datum.
                             </p>
                           </>
                         )}
